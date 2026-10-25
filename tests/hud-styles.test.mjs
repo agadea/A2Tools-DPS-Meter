@@ -101,3 +101,12 @@ test("the hidden buttons take no clicks", () => {
     assert.match(r.body, /pointer-events:\s*auto/);
   }
 });
+
+test("the pin button is always there", () => {
+  // The pin is the way to see the extra data while the overlay is locked,
+  // where there is no hover to expand the meter.
+  assert.match(html, /class="headerBtn pinBtn"/);
+  const pin = rulesFor(".pinBtn").find((r) => /opacity:\s*1/.test(r.body));
+  assert.ok(pin, "the pin button is never shown");
+  assert.match(pin.body, /pointer-events:\s*auto/);
+});

@@ -182,6 +182,17 @@ pub fn widget_click_through(window: &tauri::WebviewWindow, ignore: bool, keep: O
     input_region(window, ignore, keep.map(|(rects, scale)| (rects.to_vec(), scale)))
 }
 
+/// The meter's click-through: while locked, the clicks go through to the game
+/// except over the buttons that stay clickable (`keep`: CSS-px rectangles and
+/// the page's scale).
+pub fn meter_click_through(
+    window: &tauri::WebviewWindow,
+    ignore: bool,
+    keep: Option<(&[(f64, f64, f64, f64)], f64)>,
+) -> bool {
+    input_region(window, ignore, keep.map(|(rects, scale)| (rects.to_vec(), scale)))
+}
+
 /// Rectangles in CSS px, and the page's scale.
 type Keep = (Vec<(f64, f64, f64, f64)>, f64);
 

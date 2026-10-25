@@ -495,7 +495,8 @@
       "restoreDefaults": "Restaurar padrões",
       "hint": "Clique num atalho e pressione de 1 a 3 teclas. Esc cancela.",
       "lock": "Bloquear/desbloquear sobreposição",
-      "openDesktop": "Atalhos da área de trabalho"
+      "openDesktop": "Atalhos da área de trabalho",
+      "pin": "Fixar/desafixar sobreposição"
     },
     "defaultMeterMode": {
       "label": "Modo de alvo ao iniciar"
@@ -694,7 +695,8 @@
     "identifyingPlayer": "#{id}",
     "a2toolsUser": "Usa o A2Tools",
     "dpsSuffix": "/s",
-    "others": "Outros"
+    "others": "Outros",
+    "pin": "Fixar a sobreposição"
   },
   "skills": {
     "fallback": "Habilidade {code}",

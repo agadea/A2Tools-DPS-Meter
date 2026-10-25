@@ -495,7 +495,8 @@
       "restoreDefaults": "初期設定に戻す",
       "hint": "キーバインドをクリックし、1〜3個のキーを押してください。Escでキャンセル。",
       "lock": "オーバーレイのロック/解除",
-      "openDesktop": "デスクトップのショートカット"
+      "openDesktop": "デスクトップのショートカット",
+      "pin": "オーバーレイの固定/解除"
     },
     "defaultMeterMode": {
       "label": "起動時のターゲットモード"
@@ -694,7 +695,8 @@
     "identifyingPlayer": "#{id}",
     "a2toolsUser": "A2Toolsを使用中",
     "dpsSuffix": "/s",
-    "others": "その他"
+    "others": "その他",
+    "pin": "オーバーレイを固定"
   },
   "skills": {
     "fallback": "スキル {code}",

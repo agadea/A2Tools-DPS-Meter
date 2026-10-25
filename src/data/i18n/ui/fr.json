@@ -495,7 +495,8 @@
       "restoreDefaults": "Rétablir par défaut",
       "hint": "Cliquez sur un raccourci, puis appuyez sur 1 à 3 touches. Échap annule.",
       "lock": "Verrouiller/déverrouiller l'overlay",
-      "openDesktop": "Raccourcis du bureau"
+      "openDesktop": "Raccourcis du bureau",
+      "pin": "Épingler/désépingler l'overlay"
     },
     "defaultMeterMode": {
       "label": "Mode de cible au démarrage"
@@ -694,7 +695,8 @@
     "identifyingPlayer": "#{id}",
     "a2toolsUser": "Utilise A2Tools",
     "dpsSuffix": "/s",
-    "others": "Autres"
+    "others": "Autres",
+    "pin": "Épingler l'overlay"
   },
   "skills": {
     "fallback": "Compétence {code}",

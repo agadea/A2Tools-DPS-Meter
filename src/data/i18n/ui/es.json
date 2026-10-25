@@ -495,7 +495,8 @@
       "restoreDefaults": "Restaurar predeterminados",
       "hint": "Haz clic en un atajo y pulsa de 1 a 3 teclas. Esc cancela.",
       "lock": "Bloquear/desbloquear superposición",
-      "openDesktop": "Atajos del escritorio"
+      "openDesktop": "Atajos del escritorio",
+      "pin": "Fijar/desfijar superposición"
     },
     "defaultMeterMode": {
       "label": "Modo de objetivo al iniciar"
@@ -694,7 +695,8 @@
     "identifyingPlayer": "#{id}",
     "a2toolsUser": "Usa A2Tools",
     "dpsSuffix": "/s",
-    "others": "Otros"
+    "others": "Otros",
+    "pin": "Fijar la superposición"
   },
   "skills": {
     "fallback": "Habilidad {code}",

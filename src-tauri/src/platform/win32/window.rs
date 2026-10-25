@@ -168,6 +168,16 @@ pub fn click_through_except(_window: &tauri::WebviewWindow, _ignore: bool, _keep
     false
 }
 
+/// The meter's click-through: Windows watches the pointer instead (app.rs),
+/// so there is no region to set here.
+pub fn meter_click_through(
+    _window: &tauri::WebviewWindow,
+    _ignore: bool,
+    _keep: Option<(&[(f64, f64, f64, f64)], f64)>,
+) -> bool {
+    false
+}
+
 /// A widget's click-through: locked, clicks pass everywhere; unlocked, only
 /// its drawn parts (`keep`: CSS-px rects and the page's scale) take them, so
 /// an Event Timers grid's empty cells let the game have its clicks.

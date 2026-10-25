@@ -389,6 +389,7 @@ class DpsApp {
     this.suspendBtn = document.querySelector(".suspendBtn");
     this.updatesBtn = document.querySelector(".updatesBtn");
     this.lockBtn = document.querySelector(".lockBtn");
+    this.pinBtn = document.querySelector(".pinBtn");
     this.headerBtns = document.querySelector(".headerBtns");
     this.targetModeBtn = document.querySelector(".footerBtns .targetModeBtn");
     this.collapseBtn = document.querySelector(".collapseBtn");
@@ -399,6 +400,10 @@ class DpsApp {
     this.bindResizeHandle();
     this.initHoverTooltip();
     this._bindMeterHover();
+    // The pin is the backend's state (the hotkey is there too): ask for it.
+    Promise.resolve(window.javaBridge?.isPinned?.())
+      .then((pinned) => this.applyPinState(!!pinned))
+      .catch(() => {});
 
     this.meterUI = createMeterUI({
       elList: this.elList,
@@ -2625,6 +2630,9 @@ class DpsApp {
     this.lockBtn?.addEventListener("click", () => {
       this._setOverlayLocked(!this._overlayLocked);
     });
+    this.pinBtn?.addEventListener("click", () => {
+      this.togglePin();
+    });
     this.targetModeBtn?.addEventListener("click", () => {
       const modes = ["lastHitByMe", "bossTargets", "trainTargets", "allTargets"];
       const currentIndex = modes.indexOf(this.targetSelection);
@@ -4718,6 +4726,7 @@ class DpsApp {
     const toggleBtn = document.querySelector(".toggleKeybindBtn");
     const lockKeyBtn = document.querySelector(".lockKeybindBtn");
     const pluginsKeyBtn = document.querySelector(".pluginsKeybindBtn");
+    const pinKeyBtn = document.querySelector(".pinKeybindBtn");
     const notSet = () => this.i18n?.t?.("settings.keybind.notSet", "Not set") ?? "Not set";
 
     this.refreshKeybindLabels = () => {
@@ -4738,6 +4747,10 @@ class DpsApp {
         pluginsKeyBtn.querySelector(".keybindText").textContent = label || notSet();
         pluginsKeyBtn.classList.toggle("isUnset", !label);
       }
+      if (pinKeyBtn) {
+        pinKeyBtn.querySelector(".keybindText").textContent =
+          window.javaBridge?.getCurrentPinHotKey?.() || "Ctrl+Alt+P";
+      }
     };
     this.refreshKeybindLabels();
 
@@ -4748,7 +4761,7 @@ class DpsApp {
     let lastHotkeyStatus = {};
     this.applyHotkeyStatus = (status) => {
       lastHotkeyStatus = status && typeof status === "object" ? status : {};
-      const rows = [[reloadBtn, "reload"], [toggleBtn, "toggle"], [lockKeyBtn, "lock"], [pluginsKeyBtn, "plugins"]]
+      const rows = [[reloadBtn, "reload"], [toggleBtn, "toggle"], [lockKeyBtn, "lock"], [pluginsKeyBtn, "plugins"], [pinKeyBtn, "pin"]]
         .filter(([btn]) => btn && btn.closest?.(".settingsRowKeybind")?.style?.display !== "none")
         .filter(([btn]) => !btn.classList?.contains?.("isUnset"));
       const labelOf = (btn) => (btn.querySelector?.(".keybindText")?.textContent || "").trim().toLowerCase();
@@ -4843,6 +4856,7 @@ class DpsApp {
     toggleBtn?.addEventListener("click", () => handleKeybindClick(toggleBtn, "toggle"));
     lockKeyBtn?.addEventListener("click", () => handleKeybindClick(lockKeyBtn, "lock"));
     pluginsKeyBtn?.addEventListener("click", () => handleKeybindClick(pluginsKeyBtn, "plugins"));
+    pinKeyBtn?.addEventListener("click", () => handleKeybindClick(pinKeyBtn, "pin"));
     document.querySelector(".keybindDesktopBtn")?.addEventListener("click", () => {
       Promise.resolve(window.javaBridge?.openDesktopShortcuts?.()).catch(() => {});
     });
@@ -4915,6 +4929,9 @@ class DpsApp {
         if (lockKeyBtn) lockKeyBtn.querySelector(".keybindText").textContent = label;
       } else if (type === "plugins") {
         window.javaBridge?.setPluginWindowsHotkey?.(mods, vk);
+      } else if (type === "pin") {
+        window.javaBridge?.setPinHotkey?.(mods, vk);
+        if (pinKeyBtn) pinKeyBtn.querySelector(".keybindText").textContent = label;
       }
       this.refreshKeybindLabels();
     }, true);
@@ -6690,6 +6707,20 @@ class DpsApp {
     meter.addEventListener("pointerleave", () => { this.meterHovered = false; sync(); });
   }
 
+  /** The pin's state, as the backend says it: the meter stays expanded, with
+   *  its extra data, and never hides. */
+  applyPinState(pinned) {
+    this.pinned = !!pinned;
+    this.pinBtn?.classList.toggle("isPinned", this.pinned);
+    this.setMeterExpanded(meterIsExpanded(this.meterHovered, this.pinned));
+  }
+
+  /** Ask the backend to pin or unpin. It stores it and answers with the
+   *  "pin-changed" event, which is what updates the meter. */
+  togglePin() {
+    window.javaBridge?.setPinned?.(!this.pinned);
+  }
+
   bindDragToMoveWindow() {
     let isDragging = false;
     let startX = 0;
@@ -6920,7 +6951,10 @@ class DpsApp {
         }
         if (!isOverlay) return;
         this._applyLockBtnVisibility(show);
-        window.addEventListener("resize", () => this._sendLockBtnRect());
+        // The pin button is always there, so its place is sent even when the
+        // lock button is hidden.
+        requestAnimationFrame(() => this._sendOverlayButtonRects());
+        window.addEventListener("resize", () => this._sendOverlayButtonRects());
         this._watchOverlayCards();
         // Stay locked across restarts, as the player left it.
         if (show && this.safeGetSetting(this.storageKeys.overlayLocked) === "true") {
@@ -6952,19 +6986,25 @@ class DpsApp {
   _applyLockBtnVisibility(show) {
     if (this.lockBtn) this.lockBtn.style.display = show ? "" : "none";
     this.headerBtns?.classList.toggle("hasLockBtn", !!show);
-    if (show) requestAnimationFrame(() => this._sendLockBtnRect());
+    if (show) requestAnimationFrame(() => this._sendOverlayButtonRects());
   }
 
-  // Where the button is, so the backend keeps it clickable while locked.
-  _sendLockBtnRect() {
-    if (!this.lockBtn || this.lockBtn.style.display === "none") return;
-    const r = this.lockBtn.getBoundingClientRect();
-    if (!r.width || !r.height) return;
-    window.javaBridge?.setLockButtonRect?.(r.left, r.top, r.width, r.height, window.devicePixelRatio || 1);
+  // Where the buttons that stay clickable are, so the backend keeps them
+  // clickable while the rest of the window lets the clicks through.
+  _sendOverlayButtonRects() {
+    const rects = [];
+    for (const el of [this.lockBtn, this.pinBtn]) {
+      if (!el || el.style.display === "none") continue;
+      const r = el.getBoundingClientRect();
+      if (!r.width || !r.height) continue;
+      rects.push([r.left, r.top, r.width, r.height]);
+    }
+    if (!rects.length) return;
+    window.javaBridge?.setOverlayButtonRects?.(rects, window.devicePixelRatio || 1);
   }
 
   _setOverlayLocked(locked) {
-    this._sendLockBtnRect();
+    this._sendOverlayButtonRects();
     window.javaBridge?.setOverlayLocked?.(!!locked);
     this._onOverlayLockChanged(!!locked);
   }

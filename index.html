@@ -61,6 +61,7 @@
 
           <div class="headerBtns">
             <div class="headerBtn lockBtn" style="display:none" role="button" tabindex="0" aria-label="Lock overlay (click-through)" data-i18n-aria-label="settings.showLockBtn"><i data-lucide="lock-open"></i></div>
+            <div class="headerBtn pinBtn" role="button" tabindex="0" aria-label="Pin the meter" data-i18n-aria-label="meter.pin"><i data-lucide="pin"></i></div>
             <div class="headerBtn updatesBtn" role="button" hidden><i data-lucide="circle-arrow-down"></i></div>
             <div class="headerBtn suspendBtn" style="display:none"><i data-lucide="power"></i></div>
             <div class="headerBtn historyBtn" role="button" tabindex="0" aria-label="Fight history" data-i18n-aria-label="history.title"><i data-lucide="scroll-text"></i></div>
@@ -1072,6 +1073,14 @@
                     </div>
                     <button class="keybindBtn pluginsKeybindBtn" type="button" data-keybind="plugins">
                       <span class="keybindText">Not set</span>
+                    </button>
+                  </div>
+                  <div class="settingsRow settingsRowKeybind">
+                    <div class="settingsInfo">
+                      <div class="settingsLabel" data-i18n="settings.keybind.pin">Pin the meter</div>
+                    </div>
+                    <button class="keybindBtn pinKeybindBtn" type="button" data-keybind="pin">
+                      <span class="keybindText">Ctrl+Alt+P</span>
                     </button>
                   </div>
                   <div class="settingsRow keybindDefaultsRow">

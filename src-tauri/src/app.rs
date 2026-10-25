@@ -81,6 +81,10 @@ pub struct AppState {
     pub capture_suspended: Arc<std::sync::atomic::AtomicBool>,
     /// The overlay's click-through lock. See `apply_overlay_lock`.
     pub overlay_lock: Arc<OverlayLock>,
+    /// The meter's pin: the meter stays expanded, with its extra data, and
+    /// never hides. The backend owns it (the hotkey is here), and the page
+    /// only mirrors it.
+    pub pinned: std::sync::atomic::AtomicBool,
     /// What the last account check found: `None` until one has run, then
     /// `Some(None)` signed out or `Some(Some(_))` signed in. Settings shows it
     /// at once instead of "checking" for as long as the server takes.
@@ -92,8 +96,8 @@ pub struct AppState {
 }
 
 /// The overlay's click-through lock: while locked, clicks go through the meter
-/// to the game, and it cannot be dragged. Only its own lock button stays
-/// clickable, so the same button unlocks it; a hotkey does too.
+/// to the game, and it cannot be dragged. Only its own buttons stay
+/// clickable, so the same lock button unlocks it; a hotkey does too.
 ///
 /// On Linux the window takes the mouse over the button alone (an input
 /// region, `platform::window::click_through_except`). Elsewhere a window
@@ -105,9 +109,10 @@ pub struct AppState {
 #[derive(Default)]
 pub struct OverlayLock {
     locked: std::sync::atomic::AtomicBool,
-    /// The lock button in the main window's page: CSS-pixel x, y, width,
-    /// height, and the page's scale. Sent by the page when it lays out.
-    button: Mutex<Option<(f64, f64, f64, f64, f64)>>,
+    /// The buttons that stay clickable while the window lets clicks through
+    /// (the lock button and the pin): their rectangles in CSS px and the
+    /// page's scale. Sent by the page when it lays out.
+    buttons: Mutex<(Vec<(f64, f64, f64, f64)>, f64)>,
     /// Whether the pointer watch is running.
     watching: std::sync::atomic::AtomicBool,
     /// A card is open in the page (a one-time popup, the update prompt): the
@@ -340,14 +345,22 @@ fn screenshot_tool(app: &tauri::AppHandle, in_front: bool) {
     }
 }
 
+/// The buttons that stay clickable while the window lets clicks through:
+/// their rectangles in CSS px and the page's scale.
+fn overlay_buttons(lock: &OverlayLock) -> (Vec<(f64, f64, f64, f64)>, f64) {
+    let buttons = lock.buttons.lock();
+    (buttons.0.clone(), buttons.1)
+}
+
 fn sync_click_through(app: &tauri::AppHandle, lock: &OverlayLock, over_button: bool) {
     use std::sync::atomic::Ordering;
     let mut applied = lock.applied.lock();
     let ignore = screenshot_tool_in_front()
         || click_through(lock.locked.load(Ordering::SeqCst), over_button, lock.card_open.load(Ordering::SeqCst));
-    // The region follows the button, so it is set again even unchanged.
+    // The region follows the buttons, so it is set again even unchanged.
     if let Some(main) = app.get_webview_window("main") {
-        if platform::window::click_through_except(&main, ignore, *lock.button.lock()) {
+        let (rects, scale) = overlay_buttons(lock);
+        if platform::window::meter_click_through(&main, ignore, Some((&rects, scale))) {
             *applied = Some(ignore);
             return;
         }
@@ -371,15 +384,22 @@ fn click_through(locked: bool, over_button: bool, card_open: bool) -> bool {
     locked && !over_button && !card_open
 }
 
-fn pointer_over_lock_button(app: &tauri::AppHandle, lock: &OverlayLock) -> bool {
+/// Whether the pointer is over one of the buttons that stay clickable while
+/// the window lets clicks through.
+fn pointer_over_buttons(app: &tauri::AppHandle, lock: &OverlayLock) -> bool {
     let Some((px, py)) = platform::window::cursor_position() else { return false };
-    let Some((x, y, w, h, scale)) = *lock.button.lock() else { return false };
+    let (rects, scale) = overlay_buttons(lock);
     let Some(origin) = app.get_webview_window("main").and_then(|m| m.inner_position().ok()) else {
         return false;
     };
-    let (left, top) = (origin.x as f64 + x * scale, origin.y as f64 + y * scale);
     let (px, py) = (px as f64, py as f64);
-    px >= left && px < left + w * scale && py >= top && py < top + h * scale
+    for (x, y, w, h) in rects {
+        let (left, top) = (origin.x as f64 + x * scale, origin.y as f64 + y * scale);
+        if px >= left && px < left + w * scale && py >= top && py < top + h * scale {
+            return true;
+        }
+    }
+    false
 }
 
 /// Lock or unlock the overlay. Locking starts the pointer watch, which ends
@@ -400,7 +420,7 @@ fn apply_overlay_lock(app: &tauri::AppHandle, locked: bool) {
         std::thread::spawn(move || {
             while lock.locked.load(Ordering::SeqCst) {
                 std::thread::sleep(Duration::from_millis(50));
-                let over = pointer_over_lock_button(&app, &lock);
+                let over = pointer_over_buttons(&app, &lock);
                 sync_click_through(&app, &lock, over);
             }
             sync_click_through(&app, &lock, false);
@@ -895,8 +915,13 @@ struct Hotkeys {
 }
 
 /// The keybind settings: changing one registers the keys again.
-const HOTKEY_KEYS: [&str; 4] =
-    ["dpsMeter.hotkey", "dpsMeter.toggleWindowHotkey", "dpsMeter.lockHotkey", "dpsMeter.pluginWindowsHotkey"];
+const HOTKEY_KEYS: [&str; 5] = [
+    "dpsMeter.hotkey",
+    "dpsMeter.toggleWindowHotkey",
+    "dpsMeter.lockHotkey",
+    "dpsMeter.pluginWindowsHotkey",
+    "dpsMeter.pinHotkey",
+];
 
 /// Open the desktop's own shortcut settings, where the keys are set on
 /// Linux (KDE keeps its own; see platform::hotkeys).
@@ -948,11 +973,12 @@ fn restart_global_hotkeys(app: &tauri::AppHandle) {
 
 /// The keybind settings and their defaults, as Settings shows them: the
 /// plugin windows key has none (`""`), so it is off until one is set.
-pub const HOTKEY_DEFAULTS: [(&str, &str); 4] = [
+pub const HOTKEY_DEFAULTS: [(&str, &str); 5] = [
     ("dpsMeter.hotkey", "Ctrl+Alt+R"),
     ("dpsMeter.toggleWindowHotkey", "Ctrl+Alt+Up"),
     ("dpsMeter.lockHotkey", "Ctrl+Alt+L"),
     ("dpsMeter.pluginWindowsHotkey", ""),
+    ("dpsMeter.pinHotkey", "Ctrl+Alt+P"),
 ];
 
 /// A keybind setting's key: what is saved, else (unset or unreadable) its
@@ -1025,9 +1051,15 @@ fn start_hotkeys(app: &tauri::AppHandle, settings: &Settings) {
         // Window calls belong on the main thread.
         let _ = h.run_on_main_thread(move || crate::plugins::bring_back_windows(&app));
     }));
+    let h = app.clone();
+    let pin = binding("pin", "dpsMeter.pinHotkey", Box::new(move || {
+        let Some(state) = h.try_state::<AppState>() else { return };
+        let pinned = !state.pinned.load(std::sync::atomic::Ordering::SeqCst);
+        apply_pin(&h, pinned);
+    }));
 
     hotkeys.manager.start(
-        vec![reload, toggle, lock, plugins],
+        vec![reload, toggle, lock, plugins, pin],
         move |key, state, assigned| {
             set_hotkey_status(&status_handle, |s| {
                 s.insert(key.to_string(), state.to_string());
@@ -1360,17 +1392,44 @@ fn is_overlay_locked(state: tauri::State<'_, AppState>) -> bool {
     state.overlay_lock.locked.load(std::sync::atomic::Ordering::SeqCst)
 }
 
-/// Where the lock button is in the main window's page, so it stays clickable
-/// while the rest of the window lets clicks through.
+/// Where the buttons that stay clickable are in the main window's page, so
+/// they stay clickable while the rest of the window lets clicks through.
 #[tauri::command]
-fn set_lock_button_rect(app: tauri::AppHandle, state: tauri::State<'_, AppState>, x: f64, y: f64, width: f64, height: f64, scale: f64) {
+fn set_overlay_button_rects(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    rects: Vec<(f64, f64, f64, f64)>,
+    scale: f64,
+) {
     let scale = if scale.is_finite() && scale > 0.0 { scale } else { 1.0 };
-    *state.overlay_lock.button.lock() = Some((x, y, width, height, scale));
-    // On Linux the button's input region moves with it.
+    *state.overlay_lock.buttons.lock() = (rects, scale);
+    // On Linux the buttons' input region moves with them.
     if cfg!(target_os = "linux") {
         let lock = state.overlay_lock.clone();
         sync_click_through(&app, &lock, false);
     }
+}
+
+/// The meter's pin: the meter stays expanded, with its extra data, and never
+/// hides. The backend owns it, so the header's button and the hotkey cannot
+/// disagree.
+fn apply_pin(app: &tauri::AppHandle, pinned: bool) {
+    let Some(state) = app.try_state::<AppState>() else { return };
+    state.pinned.store(pinned, std::sync::atomic::Ordering::SeqCst);
+    state.settings.set("dpsMeter.pinned", if pinned { "true" } else { "false" });
+    let _ = app.emit("pin-changed", pinned);
+}
+
+/// Pin or unpin the meter (the header's button).
+#[tauri::command]
+fn set_pinned(app: tauri::AppHandle, pinned: bool) {
+    apply_pin(&app, pinned);
+}
+
+/// Whether the meter is pinned.
+#[tauri::command]
+fn is_pinned(state: tauri::State<'_, AppState>) -> bool {
+    state.pinned.load(std::sync::atomic::Ordering::SeqCst)
 }
 
 #[tauri::command]
@@ -3331,6 +3390,10 @@ pub fn run() {
                 }
             }
 
+            // The pin survives a restart: the saved value is the state it
+            // starts from (read before the literal, which moves `settings`).
+            let pinned = settings.get("dpsMeter.pinned").as_deref() == Some("true");
+
             let state = AppState {
                 data_storage: data_storage.clone(),
                 dps_calculator: Mutex::new(dps_calculator),
@@ -3353,6 +3416,7 @@ pub fn run() {
                     .unwrap_or_default(),
                 capture_suspended: Arc::new(std::sync::atomic::AtomicBool::new(false)),
                 overlay_lock: Arc::new(OverlayLock::default()),
+                pinned: std::sync::atomic::AtomicBool::new(pinned),
                 #[cfg(feature = "online")]
                 account_seen: Mutex::new(None),
                 #[cfg(feature = "online")]
@@ -3948,7 +4012,9 @@ pub fn run() {
             set_overlay_locked,
             set_overlay_card_open,
             is_overlay_locked,
-            set_lock_button_rect,
+            set_overlay_button_rects,
+            set_pinned,
+            is_pinned,
             is_capture_suspended,
             resize_window,
             main_window_ready,

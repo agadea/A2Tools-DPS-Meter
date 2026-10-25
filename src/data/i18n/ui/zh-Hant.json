@@ -500,7 +500,8 @@
       "restoreDefaults": "恢復預設",
       "hint": "點擊一個快捷鍵，然後按下 1 到 3 個鍵。按 Esc 取消。",
       "lock": "鎖定/解鎖懸浮視窗",
-      "openDesktop": "桌面快捷鍵"
+      "openDesktop": "桌面快捷鍵",
+      "pin": "固定/取消固定懸浮視窗"
     },
     "defaultMeterMode": {
       "label": "啟動時的目標模式"
@@ -701,7 +702,8 @@
     "identifyingPlayer": "#{id}",
     "a2toolsUser": "使用 A2Tools",
     "dpsSuffix": "/秒",
-    "others": "其他"
+    "others": "其他",
+    "pin": "固定懸浮視窗"
   },
   "skills": {
     "fallback": "技能 {code}",

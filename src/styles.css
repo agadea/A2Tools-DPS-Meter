@@ -8806,6 +8806,10 @@ html.a2-offline .historyUploadBtn {
   pointer-events: auto;
 }
 .header .headerBtns .lockBtn { opacity: 1; pointer-events: auto; }
+/* The pin is the way to see the extra data while the overlay is locked, where
+   there is no hover to expand the meter. So it never hides. */
+.header .headerBtns .pinBtn { opacity: 1; pointer-events: auto; }
+.header .headerBtns .pinBtn.isPinned { color: var(--isUser-fill); }
 
 /* The buttons that carry a state stay visible: the update button is green
    when an update is waiting, and the suspend button turns red when the

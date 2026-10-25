@@ -343,6 +343,11 @@
     window._dpsApp?._onOverlayLockChanged?.(!!event?.payload);
   });
 
+  // The pin was toggled (the button or the hotkey): the backend owns it.
+  listen("pin-changed", (event) => {
+    window._dpsApp?.applyPinState?.(event?.payload === true);
+  });
+
   listen("npcap-missing", () => {
     const msg = "Npcap is required for packet capture but is not installed.\n\nWould you like to download it now?";
     if (confirm(msg)) {
@@ -761,6 +766,12 @@
     getCurrentPluginWindowsHotKey() {
       return this.getSetting("dpsMeter.pluginWindowsHotkey") || "";
     },
+    getCurrentPinHotKey() {
+      return this.getSetting("dpsMeter.pinHotkey") || "Ctrl+Alt+P";
+    },
+    setPinHotkey(mods, vk) {
+      this.setSetting("dpsMeter.pinHotkey", this._buildHotkeyLabel(mods, vk));
+    },
     setPluginWindowsHotkey(mods, vk) {
       this.setSetting("dpsMeter.pluginWindowsHotkey", this._buildHotkeyLabel(mods, vk));
     },
@@ -774,6 +785,7 @@
       this.setSetting("dpsMeter.toggleWindowHotkey", "Ctrl+Alt+Up");
       this.setSetting("dpsMeter.lockHotkey", "Ctrl+Alt+L");
       this.setSetting("dpsMeter.pluginWindowsHotkey", "");
+      this.setSetting("dpsMeter.pinHotkey", "Ctrl+Alt+P");
     },
     // Each key's registration: { <key>: "ok" | "taken" | "unset", and on
     // Linux "<key>.assigned": the key the desktop gave it }.
@@ -803,8 +815,16 @@
     setOverlayCardOpen(open) {
       invoke("set_overlay_card_open", { open: !!open }).catch(() => {});
     },
-    setLockButtonRect(x, y, width, height, scale) {
-      invoke("set_lock_button_rect", { x, y, width, height, scale }).catch(() => {});
+    setOverlayButtonRects(rects, scale) {
+      invoke("set_overlay_button_rects", { rects, scale }).catch(() => {});
+    },
+    // The meter's pin: the backend owns the state (the hotkey is there too)
+    // and answers with the "pin-changed" event.
+    setPinned(pinned) {
+      invoke("set_pinned", { pinned: !!pinned }).catch(() => {});
+    },
+    isPinned() {
+      return invoke("is_pinned").catch(() => false);
     },
     setHotkey(mods, vk) {
       const label = this._buildHotkeyLabel(mods, vk);

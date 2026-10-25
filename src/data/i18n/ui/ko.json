@@ -500,7 +500,8 @@
       "restoreDefaults": "기본값으로 복원",
       "hint": "단축키를 클릭한 뒤 키를 1~3개 누르세요. Esc로 취소합니다.",
       "lock": "오버레이 잠금/해제",
-      "openDesktop": "데스크톱 단축키"
+      "openDesktop": "데스크톱 단축키",
+      "pin": "오버레이 고정/해제"
     },
     "defaultMeterMode": {
       "label": "시작 대상 모드"
@@ -701,7 +702,8 @@
     "identifyingPlayer": "#{id}",
     "a2toolsUser": "A2Tools 사용",
     "dpsSuffix": "/초",
-    "others": "기타"
+    "others": "기타",
+    "pin": "오버레이 고정"
   },
   "skills": {
     "fallback": "스킬 {code}",
