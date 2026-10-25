@@ -395,9 +395,9 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
 
    1. Numbers lead. The DPS readout is the top of the type scale;
       names identify, bars quantify, ranks order.
-   2. Text never sits on a colour slab. The bar is a tint behind the
-      row and ends in a lit edge, so the row stays legible over any
-      terrain and at any window opacity.
+   2. Text never sits on a colour slab. The bar is a flat tint behind the
+      row, so the row stays legible over any terrain and at any window
+      opacity.
    3. One chrome row at each end. The header states what is being
       measured, the footer states the run — nothing floats.
    ============================================================ */
@@ -421,7 +421,10 @@ html:lang(zh-Hant), html:lang(zh-Hant) body {
     "Segoe UI", sans-serif;
   --hud-ident: "Pretendard", "Spoqa Han Sans Neo", "Segoe UI", sans-serif;
 
-  --hud-row-h: 30px;
+  /* The row is the meter's floor: 24px, the type scaled to match, and the
+     boss HP reduced to a hairline, so the meter covers as little of the game
+     as it can while still being read at a glance. */
+  --hud-row-h: 24px;
   --hud-gap: 3px;
   /* User-adjustable in Settings; the value here is the design default. */
   --boss-name-size: 15px;
@@ -534,6 +537,23 @@ body.linuxOverlay .meter {
   text-transform: none;
 }
 
+/* The boss's figures, in the header now that the band is a hairline. */
+.header .bossHpInline {
+  order: 2;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-family: var(--hud-tech);
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  color: var(--hud-sub);
+  white-space: nowrap;
+}
+.header .bossHpInline .bossHpPctInline { color: var(--hud-num); }
+/* No boss, no figures: the band hides itself, so these do too. */
+.header .bossHpInline[hidden] { display: none; }
+
 .header .headerBtns {
   order: 3;
   flex: 0 0 auto;
@@ -563,17 +583,15 @@ body.linuxOverlay .meter {
 
 /* ---------- boss HP: the waterline ---------- */
 
-/* Full-bleed band under the header. Edge to edge, square corners: it
-   reads as the horizon of the instrument rather than as a widget
-   parked inside the title row, and it costs 14px instead of stacking
-   a second line into the header. */
+/* Full-bleed band under the header, reduced to a hairline: the figures
+   that used to sit on it move to the header, so the band only has to
+   say where the boss's health is, not what it is. */
 .bossHpBar {
   position: relative;
-  height: 14px;
+  height: 3px;
   overflow: hidden;
   background: rgba(0, 0, 0, 0.45);
   border-top: 1px solid var(--hud-hairline);
-  border-bottom: 1px solid var(--hud-hairline);
 }
 .bossHpFill {
   position: absolute;
@@ -587,41 +605,8 @@ body.linuxOverlay .meter {
      redrew it every frame all fight long; a few steps cost a few redraws. */
   transition: width var(--bar-glide, 200ms) steps(5, end), background 300ms ease;
 }
-.bossHpFill::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  right: 0;
-  width: 2px;
-  background: #d8ffe8;
-  box-shadow: 0 0 7px 1px rgba(120, 255, 175, 0.7);
-}
 .bossHpBar.isMid .bossHpFill { background: linear-gradient(180deg, #f0bb52 0%, #cf912c 100%); }
-.bossHpBar.isMid .bossHpFill::after { background: #fff0d0; box-shadow: 0 0 7px 1px rgba(255, 200, 110, 0.7); }
 .bossHpBar.isLow .bossHpFill { background: linear-gradient(180deg, #f06a6a 0%, #c93c3c 100%); }
-.bossHpBar.isLow .bossHpFill::after { background: #ffdcdc; box-shadow: 0 0 7px 1px rgba(255, 120, 120, 0.75); }
-
-/* Percent left, absolute HP right. A centred label sat exactly where
-   the fill edge crosses, which is what made the old one unreadable at
-   mid HP; split to the two ends, neither can be bisected. */
-.bossHpText {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 8px;
-  font-family: var(--hud-tech);
-  font-variation-settings: "wght" 600, "wdth" 87.5;
-  font-size: 10.5px;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.05em;
-  color: #fff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.95), 0 0 4px rgba(0, 0, 0, 0.85);
-  pointer-events: none;
-}
-.bossHpText .bossHpAmt { color: rgba(255, 255, 255, 0.72); }
 
 /* ---------- player rows ---------- */
 
@@ -663,11 +648,7 @@ html:not(.hoverStale) .list .item:hover { background: rgba(255, 255, 255, 0.075)
   /* Mixed with the panel's own colour, not with transparent: the bar looks
      the same over the panel but is solid, so a see-through panel doesn't
      make it see-through too. Only the bar opacity setting does. */
-  --bar-base: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--bar) 30%, rgb(var(--hud-bg))) 0%,
-    color-mix(in srgb, var(--bar) 62%, rgb(var(--hud-bg))) 100%
-  );
+  --bar-base: color-mix(in srgb, var(--bar) 40%, rgb(var(--hud-bg)));
   position: absolute;
   left: 0;
   top: 0;
@@ -679,20 +660,6 @@ html:not(.hoverStale) .list .item:hover { background: rgba(255, 255, 255, 0.075)
   background: var(--bar-base);
   /* A stepped glide (see .bossHpFill). */
   transition: width var(--bar-glide, 200ms) steps(5, end);
-}
-/* The lit edge is the part you actually read at a glance. When the tint
-   washes out over bright terrain or at low panel opacity, the edge still
-   says exactly where the bar ends — six of them stack into a skyline
-   you can take in without focusing on the window. */
-.list .item .fill::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  right: 0;
-  width: 2px;
-  background: color-mix(in srgb, var(--bar) 35%, white);
-  box-shadow: 0 0 9px 1px color-mix(in srgb, var(--bar) 75%, transparent);
 }
 .list .item.isUser .fill { --bar: var(--isUser-fill); }
 /* AION2 (class colours): each bar in its player's class colour, yours too
@@ -942,7 +909,7 @@ html:not(.hoverStale) .list .item:hover { background: rgba(255, 255, 255, 0.075)
   text-align: right;
   font-family: var(--hud-tech);
   font-variation-settings: "wght" 600, "wdth" 75;
-  font-size: 11px;
+  font-size: 10px;
   font-variant-numeric: tabular-nums;
   line-height: 1;
   color: var(--hud-faint);
@@ -952,8 +919,8 @@ html:not(.hoverStale) .list .item:hover { background: rgba(255, 255, 255, 0.075)
 
 .list .item .classIcon {
   flex: 0 0 auto;
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -972,7 +939,7 @@ html:not(.hoverStale) .list .item:hover { background: rgba(255, 255, 255, 0.075)
   flex: 0 1 auto;
   min-width: 0;
   font-family: var(--hud-ident);
-  font-size: 14.5px;
+  font-size: 13px;
   font-weight: 500;
   /* The name font is variable, and an inherited "wght" 400 setting overrode
      font-weight, so Bold names changed nothing: set the axis here. */
@@ -986,7 +953,7 @@ html:not(.hoverStale) .list .item:hover { background: rgba(255, 255, 255, 0.075)
 }
 .list .item .name.isCjk {
   font-family: var(--cjk-font-stack);
-  font-size: 14px;
+  font-size: 12.5px;
   letter-spacing: 0;
 }
 
@@ -1022,7 +989,7 @@ html:not(.hoverStale) .list .item:hover { background: rgba(255, 255, 255, 0.075)
      DPS changed nothing. */
   font-weight: 400;
   font-variation-settings: "wght" 400, "wdth" 87.5;
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1;
   letter-spacing: 0.01em;
   color: var(--hud-num);
@@ -1032,9 +999,9 @@ html:not(.hoverStale) .list .item:hover { background: rgba(255, 255, 255, 0.075)
    moving bar the muted --hud-sub grey was hard to pick out. */
 .list .item .dps .dpsContribution {
   font-variation-settings: "wght" 600, "wdth" 75;
-  font-size: 11px;
+  font-size: 10px;
   color: rgba(255, 255, 255, 0.88);
-  min-width: 34px;
+  min-width: 30px;
   text-align: right;
 }
 
@@ -1293,7 +1260,7 @@ body.mainPlayerDpsBold :is(.meter, .barPreviewPanel) .item .content .dps > p {
 
 /* ---------- slim ---------- */
 
-.meter.slim { --hud-row-h: 22px; --hud-gap: 2px; }
+.meter.slim { --hud-row-h: 20px; --hud-gap: 2px; }
 .meter.slim .header { padding: 5px 8px 4px; gap: 7px; }
 .meter.slim .header .bossIcon,
 .meter.slim .header .bossIconOverlay svg { width: 13px; height: 13px; }
@@ -1303,12 +1270,11 @@ body.mainPlayerDpsBold :is(.meter, .barPreviewPanel) .item .content .dps > p {
 }
 .meter.slim .header .headerBtns .headerBtn,
 .meter.slim .header .headerBtns .headerBtn svg { width: 13px; height: 13px; }
-.meter.slim .bossHpBar { height: 10px; }
-.meter.slim .bossHpText { font-size: 8.5px; padding: 0 6px; }
+.meter.slim .bossHpBar { height: 3px; }
 .meter.slim .list { padding: 0 6px; }
 .meter.slim .list.hasRows { padding: 5px 6px; }
 /* Settings' bar preview follows the layout too (core.js setMeterLayout). */
-.barPreviewPanel.slim { --hud-row-h: 22px; --hud-gap: 2px; }
+.barPreviewPanel.slim { --hud-row-h: 20px; --hud-gap: 2px; }
 :is(.meter, .barPreviewPanel).slim .list .item { padding: 0 6px 0 4px; }
 :is(.meter, .barPreviewPanel).slim .list .item .content { gap: 5px; }
 :is(.meter, .barPreviewPanel).slim .list .item .rank { min-width: 11px; font-size: 9px; }

@@ -362,7 +362,11 @@ class DpsApp {
     this._lastRenderedTargetLabel = this.elBossName.textContent;
     this.elBossHpBar = document.querySelector(".bossHpBar");
     this.elBossHpFill = document.querySelector(".bossHpFill");
-    this.elBossHpText = document.querySelector(".bossHpText");
+    this.elBossHpInline = document.querySelector(".bossHpInline");
+    // No boss, no figures: the band hides itself, so these do too.
+    if (this.elBossHpInline) {
+      this.elBossHpInline.hidden = true;
+    }
     this.battleTimeRoot = document.querySelector(".battleTime");
     this.analysisStatusEl = document.querySelector(".analysisStatus");
     this.aionRunning = false;
@@ -5594,6 +5598,9 @@ class DpsApp {
       if (this.elBossHpBar.style.display !== "none") {
         this.elBossHpBar.style.display = "none";
       }
+      if (this.elBossHpInline) {
+        this.elBossHpInline.hidden = true;
+      }
       return;
     }
     // Prefer the real current-HP feed when we have one (>= 0); otherwise fall back
@@ -5613,17 +5620,14 @@ class DpsApp {
     // Color shifts as the boss is whittled down.
     this.elBossHpBar.classList.toggle("isMid", pct > 25 && pct <= 50);
     this.elBossHpBar.classList.toggle("isLow", pct <= 25);
-    if (this.elBossHpText) {
-      // Split to the two ends of the band: the percentage rides the fill,
-      // the absolute HP sits on the track. A single centred label was
-      // getting sliced in half by the fill's leading edge at mid HP.
-      const pctEl = this.elBossHpText.querySelector(".bossHpPct");
-      const amtEl = this.elBossHpText.querySelector(".bossHpAmt");
-      if (pctEl && amtEl) {
-        pctEl.textContent = `${Math.round(pct)}%`;
-        amtEl.textContent = `${this.formatAbbreviatedNumber(remaining)} / ${this.formatAbbreviatedNumber(max)}`;
-      } else {
-        this.elBossHpText.textContent = `${this.formatAbbreviatedNumber(remaining)} · ${Math.round(pct)}%`;
+    // The band is a hairline now, so the figures live in the header.
+    if (this.elBossHpInline) {
+      this.elBossHpInline.hidden = false;
+      const pctInline = this.elBossHpInline.querySelector(".bossHpPctInline");
+      const amtInline = this.elBossHpInline.querySelector(".bossHpAmtInline");
+      if (pctInline) pctInline.textContent = `${Math.round(pct)}%`;
+      if (amtInline) {
+        amtInline.textContent = `${this.formatAbbreviatedNumber(remaining)} / ${this.formatAbbreviatedNumber(max)}`;
       }
     }
   }
