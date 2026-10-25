@@ -399,7 +399,6 @@ class DpsApp {
 
     this.bindHeaderButtons();
     this.bindDragToMoveWindow();
-    this._watchMeterInteraction();
     this.bindResizeHandle();
     this.initHoverTooltip();
     this._bindMeterHover();
@@ -2790,7 +2789,9 @@ class DpsApp {
     const checkbox = document.querySelector(".hideWhenIdleCheckbox");
     if (checkbox) {
       const stored = this.safeGetSetting(this.storageKeys.hideWhenIdle);
-      checkbox.checked = stored === null || stored === undefined ? true : stored === "true";
+      // On unless it is turned off: an unset value means on, as the backend
+      // reads it.
+      checkbox.checked = stored !== "false";
       checkbox.addEventListener("change", (event) => {
         this.safeSetSetting(this.storageKeys.hideWhenIdle, String(!!event.target?.checked));
       });
@@ -2799,14 +2800,24 @@ class DpsApp {
     const input = document.querySelector(".idleSecondsInput");
     if (input) {
       const stored = this.safeGetSetting(this.storageKeys.idleSeconds);
-      input.value = stored || "15";
+      input.value = String(this.idleSecondsValue(stored));
       input.addEventListener("change", (event) => {
-        const seconds = Math.min(600, Math.max(1, parseInt(event.target?.value, 10) || 15));
+        const seconds = this.idleSecondsValue(event.target?.value);
         event.target.value = String(seconds);
         this.safeSetSetting(this.storageKeys.idleSeconds, String(seconds));
       });
       this.idleSecondsInput = input;
     }
+  }
+
+  // The idle seconds the backend will read: the saved value if it is a whole
+  // number, else 15, clamped to 1..600 — the same rule, so the field and
+  // the backend never disagree.
+  idleSecondsValue(stored) {
+    const raw = stored === null || stored === undefined ? "" : String(stored).trim();
+    const seconds = /^[+-]?\d+$/.test(raw) ? parseInt(raw, 10) : Number.NaN;
+    if (!Number.isSafeInteger(seconds)) return 15;
+    return Math.min(600, Math.max(1, seconds));
   }
 
   setupSettingsPanel() {
@@ -5272,7 +5283,9 @@ class DpsApp {
     if (isSet(limit)) this.setPlayerLimit(limit);
 
     const idleSeconds = get("idleSeconds");
-    if (isSet(idleSeconds) && this.idleSecondsInput) this.idleSecondsInput.value = idleSeconds;
+    if (isSet(idleSeconds) && this.idleSecondsInput) {
+      this.idleSecondsInput.value = String(this.idleSecondsValue(idleSeconds));
+    }
 
     this.setBetaUi(true);
     this.setSlimMode(get("slimMode") === "true");
@@ -6742,7 +6755,8 @@ class DpsApp {
   }
 
   /** The pin's state, as the backend says it: the meter stays expanded, with
-   *  its extra data, and never hides. */
+   *  its extra data, and it keeps the meter up against the idle rule —
+   *  nothing is happening is what the pin answers. */
   applyPinState(pinned) {
     this.pinned = !!pinned;
     this.pinBtn?.classList.toggle("isPinned", this.pinned);
@@ -6800,6 +6814,8 @@ class DpsApp {
       isDragging = true;
       hasDragMoved = false;
       this.isWindowDragging = true;
+      // The idle rule must not hide the meter under the pointer.
+      window.javaBridge?.setMeterInteracting?.(true);
       this.deferFetchUntilDragEnd = true;
       // Don't freeze pointer events yet — defer until the 3px drag threshold
       // is crossed so that simple clicks on meter bars still fire normally.
@@ -6849,6 +6865,7 @@ class DpsApp {
       if (!isDragging) return;
       isDragging = false;
       this.isWindowDragging = false;
+      window.javaBridge?.setMeterInteracting?.(false);
       this.setWindowDragFreeze(false);
       if (hasDragMoved) {
         this.elList?.classList?.remove?.("dragInteracting");
@@ -7023,22 +7040,6 @@ class DpsApp {
     const observer = new MutationObserver(sync);
     for (const card of cards) observer.observe(card, { attributes: true, attributeFilter: ["class"] });
     sync();
-  }
-
-  // The meter must not vanish in the middle of a drag: the backend's idle
-  // rule reads this flag.
-  _watchMeterInteraction() {
-    const meter = document.querySelector(".meter");
-    if (!meter) return;
-    meter.addEventListener("pointerdown", () => {
-      window.javaBridge?.setMeterInteracting?.(true);
-    });
-    window.addEventListener("pointerup", () => {
-      window.javaBridge?.setMeterInteracting?.(false);
-    });
-    meter.addEventListener("pointercancel", () => {
-      window.javaBridge?.setMeterInteracting?.(false);
-    });
   }
 
   _applyLockBtnVisibility(show) {

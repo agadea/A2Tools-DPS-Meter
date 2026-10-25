@@ -82,12 +82,18 @@ pub struct AppState {
     /// The overlay's click-through lock. See `apply_overlay_lock`.
     pub overlay_lock: Arc<OverlayLock>,
     /// The meter's pin: the meter stays expanded, with its extra data, and
-    /// never hides. The backend owns it (the hotkey is here), and the page
-    /// only mirrors it.
+    /// it keeps the meter up against the idle rule — nothing is happening is
+    /// what the pin answers. The game being closed and being alone are their
+    /// own settings, with their own names. The backend owns the pin (the
+    /// hotkey is here), and the page only mirrors it.
     pub pinned: std::sync::atomic::AtomicBool,
     /// The player is holding the meter (a drag): the idle rule must not hide
     /// the window out from under the pointer.
     pub interacting: std::sync::atomic::AtomicBool,
+    /// When the meter was last shown, in clock ms. The idle window runs from
+    /// the later of this and the last damage, so a meter that has just been
+    /// shown stays for a full window.
+    pub shown_at_ms: std::sync::atomic::AtomicI64,
     /// What the last account check found: `None` until one has run, then
     /// `Some(None)` signed out or `Some(Some(_))` signed in. Settings shows it
     /// at once instead of "checking" for as long as the server takes.
@@ -198,11 +204,81 @@ fn show_meter_again(app: &tauri::AppHandle, window: &tauri::WebviewWindow) {
     // Shown again, the window takes the mouse (revealed, or a new surface
     // where it was unmapped, KDE): the lock decides that anew.
     if let Some(state) = app.try_state::<AppState>() {
+        // The idle window runs from here: a meter that has just been shown
+        // stays for a full window.
+        state
+            .shown_at_ms
+            .store(crate::clock::now_ms(), std::sync::atomic::Ordering::SeqCst);
         let lock = state.overlay_lock.clone();
         *lock.applied.lock() = None;
         sync_click_through(app, &lock, false);
     }
     let _ = window.emit("force-resize", ());
+}
+
+/// Why the meter is hidden, and why it is not: the three reasons, tracked
+/// apart. The meter is hidden while any of them holds.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct HideReasons {
+    /// The game is closed (and the setting is on).
+    closed: bool,
+    /// You are alone (and the setting is on).
+    solo: bool,
+    /// Nothing is happening.
+    idle: bool,
+}
+
+impl HideReasons {
+    /// Whether the meter is hidden because of one of the reasons.
+    fn hidden(&self) -> bool {
+        self.closed || self.solo || self.idle
+    }
+}
+
+/// What the tick loop does with the meter.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum MeterAction {
+    /// Hide the window.
+    Hide,
+    /// Show the window.
+    Show,
+    /// Leave it as it is.
+    Keep,
+}
+
+/// The decision, as a pure function of the reasons now, the reasons before
+/// and whether the player wants the meter.
+///
+/// The player's own Show/Hide is a layer above all of it: the loop never
+/// shows the meter when it is off, and never turns it off either. A hard
+/// reason (the game is closed, you are alone) suspends the idle one, and
+/// when it lets go the meter is shown again — and the idle window starts
+/// again from that moment, because showing the meter moves the anchor.
+fn hide_action(now: HideReasons, before: HideReasons, wanted: bool) -> (MeterAction, HideReasons) {
+    let hard_now = now.closed || now.solo;
+    let hard_before = before.closed || before.solo;
+    let current = HideReasons {
+        closed: now.closed,
+        solo: now.solo,
+        idle: now.idle && !hard_now,
+    };
+    if !wanted {
+        // The player turned the meter off: the loop leaves it alone, and the
+        // reasons wait for them to turn it back on.
+        return (MeterAction::Keep, before);
+    }
+    let action = if hard_before && !hard_now {
+        // The game opened, or a party formed: the meter comes back, and the
+        // idle window starts again from this moment.
+        MeterAction::Show
+    } else if current.hidden() && !before.hidden() {
+        MeterAction::Hide
+    } else if !current.hidden() && before.hidden() {
+        MeterAction::Show
+    } else {
+        MeterAction::Keep
+    };
+    (action, current)
 }
 
 /// The windows that hide with the meter when AION2 isn't in front ("Hide
@@ -1418,9 +1494,10 @@ fn set_overlay_button_rects(
     }
 }
 
-/// The meter's pin: the meter stays expanded, with its extra data, and never
-/// hides. The backend owns it, so the header's button and the hotkey cannot
-/// disagree.
+/// The meter's pin: the meter stays expanded, with its extra data, and it
+/// keeps the meter up against the idle rule — nothing is happening is what
+/// the pin answers. The backend owns it, so the header's button and the hotkey
+/// cannot disagree.
 fn apply_pin(app: &tauri::AppHandle, pinned: bool) {
     let Some(state) = app.try_state::<AppState>() else { return };
     state.pinned.store(pinned, std::sync::atomic::Ordering::SeqCst);
@@ -3433,6 +3510,7 @@ pub fn run() {
                 overlay_lock: Arc::new(OverlayLock::default()),
                 pinned: std::sync::atomic::AtomicBool::new(pinned),
                 interacting: std::sync::atomic::AtomicBool::new(false),
+                shown_at_ms: std::sync::atomic::AtomicI64::new(crate::clock::now_ms()),
                 #[cfg(feature = "online")]
                 account_seen: Mutex::new(None),
                 #[cfg(feature = "online")]
@@ -3678,9 +3756,10 @@ pub fn run() {
                 let mut tick_count: u64 = 0;
                 let mut hide_delay: u64 = 0; // ticks to wait before hiding
                 let mut last_ping: Option<u64> = None;
-                // The meter hidden because AION2 is closed, because you are
-                // alone, or because nothing is happening.
-                let mut hidden_away = false;
+                // Why the meter is hidden: the game is closed, you are alone,
+                // or nothing is happening. Each reason is tracked apart, as
+                // each of them can start and stop on its own.
+                let mut reasons = HideReasons::default();
                 // The other windows hidden with the meter (auto-hide), and how
                 // many ticks nothing of ours or the game has been in front.
                 let mut hidden_with_meter: std::collections::HashSet<String> = Default::default();
@@ -3718,11 +3797,10 @@ pub fn run() {
 
                         // --- Hide while AION2 is closed, while solo, or while
                         // nothing is happening (every 2 s) ---
-                        // Hidden as the game closes or the party breaks up (or
-                        // the option is turned on then), shown as it opens or a
-                        // party forms: in between, the keybind can still bring
-                        // the meter back. Solo is fewer than two in the party,
-                        // as the game last told (Hirai, 2026-10-22).
+                        // The three reasons are tracked apart: the meter is
+                        // hidden while any of them holds, and comes back when
+                        // the last of them lets go. A hard reason (the game
+                        // is closed, you are alone) suspends the idle one.
                         // Idle is no damage for a while and no target being
                         // fought: the pin keeps the meter up, and so do an
                         // open card and a drag on the meter itself.
@@ -3744,25 +3822,35 @@ pub fn run() {
                                 && !state.pinned.load(std::sync::atomic::Ordering::SeqCst)
                                 && !state.interacting.load(std::sync::atomic::Ordering::SeqCst)
                                 && !state.overlay_lock.card_open.load(std::sync::atomic::Ordering::SeqCst)
-                                && state
-                                    .data_storage
-                                    .is_idle(idle_seconds * 1000, crate::clock::now_ms());
-                            let want = meter_wanted(&handle) && (closed || solo || idle);
-                            if want != hidden_away {
-                                if let Some(window) = handle.get_webview_window("main") {
-                                    if want {
+                                && state.data_storage.is_idle(
+                                    idle_seconds * 1000,
+                                    crate::clock::now_ms(),
+                                    state.shown_at_ms.load(std::sync::atomic::Ordering::SeqCst),
+                                );
+                            let (action, next) = hide_action(
+                                HideReasons { closed, solo, idle },
+                                reasons,
+                                meter_wanted(&handle),
+                            );
+                            reasons = next;
+                            match action {
+                                MeterAction::Hide => {
+                                    if let Some(window) = handle.get_webview_window("main") {
                                         platform::window::minimize_off_top(&window);
-                                    } else {
+                                    }
+                                }
+                                MeterAction::Show => {
+                                    if let Some(window) = handle.get_webview_window("main") {
                                         show_meter_again(&handle, &window);
                                     }
                                 }
-                                hidden_away = want;
+                                MeterAction::Keep => {}
                             }
                         }
 
                         // --- Auto-hide when AION2 loses focus (every tick) ---
                         let auto_hide = tick_count > 20
-                            && !hidden_away
+                            && !reasons.hidden()
                             && state.settings.get("dpsMeter.autoHideMeter")
                                 .unwrap_or_default() == "true"
                             && meter_wanted(&handle);
@@ -4128,6 +4216,63 @@ mod tests {
         assert!(!super::package_hash_matches(&actual.replace('9', "8"), actual));
         assert!(!super::package_hash_matches("", actual));
         assert!(!super::package_hash_matches("9f86d081", "9f86d081"));
+    }
+
+    /// The three reasons are tracked apart: the meter is hidden while any of
+    /// them holds, and it comes back when the last of them lets go.
+    #[test]
+    fn the_game_opening_shows_the_meter_even_while_nothing_happens() {
+        let before = HideReasons { closed: true, solo: false, idle: false };
+        let now = HideReasons { closed: false, solo: false, idle: true };
+        let (action, _) = hide_action(now, before, true);
+        assert_eq!(action, MeterAction::Show);
+    }
+
+    /// A hard reason suspends the idle one: the game being closed hides the
+    /// meter whatever else happens.
+    #[test]
+    fn a_hard_reason_suspends_the_idle_one() {
+        let before = HideReasons::default();
+        let now = HideReasons { closed: true, solo: false, idle: true };
+        let (action, next) = hide_action(now, before, true);
+        assert_eq!(action, MeterAction::Hide);
+        assert!(!next.idle, "the idle reason waits while the game is closed");
+    }
+
+    /// Nothing happening hides the meter, and the next hit brings it back.
+    #[test]
+    fn the_idle_reason_hides_the_meter_and_the_next_hit_shows_it() {
+        let (action, _) = hide_action(
+            HideReasons { closed: false, solo: false, idle: true },
+            HideReasons::default(),
+            true,
+        );
+        assert_eq!(action, MeterAction::Hide);
+        let (action, _) = hide_action(
+            HideReasons { closed: false, solo: false, idle: false },
+            HideReasons { closed: false, solo: false, idle: true },
+            true,
+        );
+        assert_eq!(action, MeterAction::Show);
+    }
+
+    /// The player's own Show/Hide is a layer above all of it: the loop
+    /// leaves the meter alone, either way.
+    #[test]
+    fn the_loop_leaves_the_meter_alone_when_the_player_turned_it_off() {
+        let (action, _) = hide_action(
+            HideReasons { closed: false, solo: false, idle: true },
+            HideReasons::default(),
+            false,
+        );
+        assert_eq!(action, MeterAction::Keep);
+        // Not even when the game opens.
+        let (action, _) = hide_action(
+            HideReasons { closed: false, solo: false, idle: false },
+            HideReasons { closed: true, solo: false, idle: false },
+            false,
+        );
+        assert_eq!(action, MeterAction::Keep);
     }
 
     #[test]

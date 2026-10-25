@@ -2447,21 +2447,26 @@ impl DataStorage {
         self.last_damage_ms.load(Ordering::Relaxed)
     }
 
-    /// Whether nothing is happening: no damage anywhere for `idle_ms`, and
-    /// the target the meter follows (if any) has taken no damage for the
-    /// same time. Both have to be quiet: a fight elsewhere still counts, and
-    /// so does a target that is being fought.
-    pub fn is_idle(&self, idle_ms: i64, now_ms: i64) -> bool {
+    /// Whether nothing is happening: no damage since the anchor for
+    /// `idle_ms`, and the target the meter follows (if any) has taken no
+    /// damage for the same time. Both have to be quiet: a fight elsewhere
+    /// still counts, and so does a target that is being fought.
+    ///
+    /// The anchor is the later of the last damage and `shown_at_ms`, the last
+    /// time the meter was shown: a meter that has just been shown stays for a
+    /// full window, and a fresh install gets its grace period instead of
+    /// vanishing two seconds after launch.
+    pub fn is_idle(&self, idle_ms: i64, now_ms: i64, shown_at_ms: i64) -> bool {
         let idle_ms = idle_ms.max(0);
         let last = self.last_damage_ms();
         // NEVER_MS means no damage has ever been recorded: there is no clock
         // to measure from, but nothing is happening either.
-        let quiet = if last == NEVER_MS {
-            true
+        let anchor = if last == NEVER_MS {
+            shown_at_ms
         } else {
-            now_ms.saturating_sub(last) >= idle_ms
+            last.max(shown_at_ms)
         };
-        if !quiet {
+        if now_ms.saturating_sub(anchor) < idle_ms {
             return false;
         }
         let target = self.current_target();
@@ -4109,13 +4114,15 @@ mod idle_tests {
     }
 
     /// Nothing has ever happened: there is no damage and no target, so the
-    /// meter has nothing to show.
+    /// meter has nothing to show — but the window it was given has to pass
+    /// first.
     #[test]
-    fn a_storage_that_never_saw_damage_is_idle() {
+    fn a_storage_that_never_saw_damage_is_idle_after_the_window() {
         clock::set_override(Some(1_000));
         let s = DataStorage::new();
         assert_eq!(s.last_damage_ms(), NEVER_MS, "no damage was ever recorded");
-        assert!(s.is_idle(15_000, clock::now_ms()));
+        assert!(!s.is_idle(15_000, 14_999, 1_000), "the window has not passed");
+        assert!(s.is_idle(15_000, 16_000, 1_000), "the window has passed");
     }
 
     /// Damage a moment ago keeps the meter up.
@@ -4125,7 +4132,7 @@ mod idle_tests {
         let s = DataStorage::new();
         s.append_damage(hit_at(101, 900, 1_000_000, 500));
         clock::set_override(Some(1_010_000));
-        assert!(!s.is_idle(15_000, clock::now_ms()), "damage ten seconds ago");
+        assert!(!s.is_idle(15_000, clock::now_ms(), 1_000_000), "damage ten seconds ago");
     }
 
     /// The same damage, but old enough: the meter has nothing to show.
@@ -4135,7 +4142,18 @@ mod idle_tests {
         let s = DataStorage::new();
         s.append_damage(hit_at(101, 900, 1_000_000, 500));
         clock::set_override(Some(1_020_000));
-        assert!(s.is_idle(15_000, clock::now_ms()), "damage twenty seconds ago");
+        assert!(s.is_idle(15_000, clock::now_ms(), 1_000_000), "damage twenty seconds ago");
+    }
+
+    /// The meter was shown a moment ago: the idle window runs from there, so
+    /// it stays for a full window even though nothing has happened for long.
+    #[test]
+    fn a_meter_that_was_just_shown_is_not_idle_yet() {
+        clock::set_override(Some(900_000));
+        let s = DataStorage::new();
+        s.append_damage(hit_at(101, 900, 900_000, 500));
+        assert!(!s.is_idle(15_000, 1_060_000, 1_060_000), "shown a moment ago");
+        assert!(s.is_idle(15_000, 1_075_000, 1_060_000), "a full window later");
     }
 
     /// The target the meter follows counts too: the rest of the world may be
@@ -4148,6 +4166,6 @@ mod idle_tests {
         s.set_current_target(900);
         // The rest of the world went quiet; the target did not.
         s.last_damage_ms.store(940_000, Ordering::Relaxed);
-        assert!(!s.is_idle(15_000, clock::now_ms()), "the target is still being hit");
+        assert!(!s.is_idle(15_000, 1_060_000, 940_000), "the target is still being hit");
     }
 }

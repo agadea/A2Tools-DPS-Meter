@@ -275,6 +275,25 @@ test("the idle settings have their defaults: on, and fifteen seconds", () => {
   assert.equal(input.value, "15");
 });
 
+test("the idle settings read what the backend reads", () => {
+  const { ctx, controls } = idleContext();
+  // An empty value means on, as the backend reads it, and a number that is
+  // not one means fifteen, as the backend reads it.
+  ctx.window.javaBridge = {
+    getSetting: (key) => (key === "dpsMeter.hideWhenIdle" ? "" : "abc"),
+  };
+  const checkbox = control();
+  const input = control();
+  controls[".hideWhenIdleCheckbox"] = checkbox;
+  controls[".idleSecondsInput"] = input;
+
+  const app = vm.runInContext("new DpsApp()", ctx);
+  app.setupIdleSettings();
+
+  assert.equal(checkbox.checked, true, "an empty value means on");
+  assert.equal(input.value, "15", "a value that is not a number means fifteen");
+});
+
 test("the idle seconds stay inside what the backend accepts", () => {
   const { ctx, controls } = idleContext();
   const written = [];
@@ -292,28 +311,29 @@ test("the idle seconds stay inside what the backend accepts", () => {
   input.fire("change", { target: { value: "0" } });
   assert.deepEqual(written, [
     ["dpsMeter.idleSeconds", "600"],
-    ["dpsMeter.idleSeconds", "15"],
+    ["dpsMeter.idleSeconds", "1"],
   ]);
 });
 
 test("the backend is told when the meter is being dragged", () => {
-  const { ctx, controls } = idleContext();
+  const { ctx } = idleContext();
   const told = [];
-  ctx.window.javaBridge = { setMeterInteracting: (on) => told.push(on) };
-  const meter = control();
-  controls[".meter"] = meter;
-  const windowHandlers = {};
-  ctx.window.addEventListener = (name, handler) => { windowHandlers[name] = handler; };
+  ctx.window.javaBridge = {
+    setMeterInteracting: (on) => told.push(on),
+    moveWindow: () => {},
+  };
+  ctx.Node = { TEXT_NODE: 3 };
+  const handlers = {};
+  ctx.document.addEventListener = (name, handler) => { handlers[name] = handler; };
 
   const app = vm.runInContext("new DpsApp()", ctx);
-  app._watchMeterInteraction();
+  app.fetchDps = () => {};
+  app.bindDragToMoveWindow();
 
-  meter.fire("pointerdown", {});
+  // A press on the meter starts the drag: the meter must not go away then.
+  handlers.mousedown({ button: 0, screenX: 0, screenY: 0, target: { nodeType: 1, closest: () => null } });
   assert.deepEqual(told, [true]);
-  windowHandlers.pointerup?.({});
+  handlers.mouseup({});
   assert.deepEqual(told, [true, false]);
-  meter.fire("pointerdown", {});
-  meter.fire("pointercancel", {});
-  assert.deepEqual(told, [true, false, true, false]);
 });
 
