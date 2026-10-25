@@ -206,6 +206,168 @@ test("a small share is marked, a large one is not", () => {
   assert.deepEqual(contributionIn(meterContext(), 50), { text: "50.0%", className: "" });
 });
 
+// The meter drawn in a DOM small enough to run: the rows it draws, the
+// percentage beside them and the resize the window needs when they change.
+// The stub only has to be an element the meter can create, class, fill and
+// ask for its size.
+function element(tag = "div") {
+  const classes = new Set();
+  const el = {
+    tagName: tag,
+    className: "",
+    dataset: {},
+    style: { display: "", setProperty() {}, removeProperty() {} },
+    children: [],
+    textContent: "",
+    innerHTML: "",
+    title: "",
+    src: "",
+    draggable: false,
+    classList: {
+      add: (name) => classes.add(name),
+      remove: (name) => classes.delete(name),
+      toggle: (name, on) => {
+        const wanted = on === undefined ? !classes.has(name) : !!on;
+        if (wanted) classes.add(name);
+        else classes.delete(name);
+      },
+      contains: (name) => classes.has(name),
+    },
+    // The DOM moves an element that is appended again; it does not copy it.
+    appendChild: (child) => {
+      const at = el.children.indexOf(child);
+      if (at >= 0) el.children.splice(at, 1);
+      el.children.push(child);
+      return child;
+    },
+    addEventListener() {},
+    removeAttribute() {},
+    setAttribute() {},
+    getBoundingClientRect: () => ({ left: 0, top: 0, width: 0, height: 0 }),
+    offsetHeight: 0,
+    offsetWidth: 0,
+    querySelectorAll: () => [],
+    querySelector: () => null,
+    replaceChildren: () => { el.children = []; },
+    remove() {},
+  };
+  return el;
+}
+
+function meterHarness({ rows, limit = 6, mode = "dps" } = {}) {
+  const frames = [];
+  const resizes = [];
+  const elList = element("div");
+  const window = { addEventListener() {}, devicePixelRatio: 1 };
+  const ctx = vm.createContext({
+    window,
+    console,
+    document: {
+      readyState: "complete",
+      addEventListener() {},
+      querySelector: () => null,
+      createElement: (tag) => element(tag),
+      documentElement: { dataset: {} },
+    },
+    getComputedStyle: () => ({ rowGap: "3px", getPropertyValue: () => "24px" }),
+    requestAnimationFrame: (cb) => { frames.push(cb); return frames.length; },
+    cancelAnimationFrame: () => {},
+    performance: { now: () => 0 },
+    setTimeout() {},
+    clearTimeout() {},
+  });
+  vm.runInContext(readFileSync(new URL("../public/src/js/meter.js", import.meta.url), "utf8"), ctx);
+  const state = { expanded: false };
+  window.javaBridge = {
+    // How many rows were in the DOM when the window was asked to resize.
+    updateOverlaySize: () => resizes.push(elList.children.length),
+  };
+  const ui = vm.runInContext("createMeterUI", ctx)({
+    elList,
+    dpsFormatter: { format: (n) => String(n) },
+    getUserName: () => "me",
+    getMetric: (row) => ({ value: row.dps, text: String(row.dps) }),
+    getDisplayMode: () => mode,
+    getSortDirection: () => "desc",
+    getPinUserToTop: () => false,
+    getPlayerLimit: () => limit,
+    getPartyStat: () => "off",
+    getJobColor: () => "",
+    getExpanded: () => state.expanded,
+    getRowRoom: () => Infinity,
+  });
+  const byClass = (el, cls) => el.children.find((child) => child.className === cls);
+  return {
+    elList,
+    resizes,
+    state,
+    // Draw the rows, the way the page does: the update, then the frame.
+    draw: (newRows = rows) => {
+      ui.updateFromRows(newRows);
+      frames.shift()?.();
+    },
+    // The percentage the row shows.
+    contributionOf: (id) => {
+      const rowEl = elList.children.find((el) => el.dataset.rowId === String(id));
+      if (!rowEl) return null;
+      const dps = byClass(byClass(rowEl, "content"), "dps");
+      return dps.children[1].textContent;
+    },
+    drawnIds: () =>
+      elList.children.filter((el) => el.style.display !== "none").map((el) => el.dataset.rowId),
+  };
+}
+
+// A party: five players and one row that cannot be drawn (no id).
+const statRow = (id, damage) => ({ id, name: id, dps: damage / 10, totalDamage: damage, healAmount: 0, stagger: 0 });
+const PARTY = [
+  statRow("a", 600),
+  statRow("b", 500),
+  { id: "", name: "", dps: 40, totalDamage: 400, healAmount: 0, stagger: 0 },
+  statRow("c", 300),
+  statRow("d", 200),
+  statRow("e", 100),
+];
+
+test("a row's percentage does not change when the meter expands", () => {
+  // The denominator is the expanded set — the rows up to "Max players shown"
+  // — so the compact meter already shares them out.
+  const meter = meterHarness({ rows: PARTY });
+  meter.draw();
+  assert.equal(meter.contributionOf("a"), "35.3%");
+  assert.equal(meter.drawnIds().length, 2, "the row with no id is not drawn");
+
+  meter.state.expanded = true;
+  meter.draw();
+  assert.equal(meter.contributionOf("a"), "35.3%", "the percentage must not move when the meter expands");
+  assert.equal(meter.drawnIds().length, 5);
+});
+
+test("a row that cannot be drawn is not in the denominator", () => {
+  // The row with no id carries 400 damage; it is in neither the numerator nor
+  // the denominator, so the share is 600 of 1700 and not of 2100.
+  const meter = meterHarness({ rows: PARTY });
+  meter.draw();
+  assert.equal(meter.contributionOf("a"), "35.3%");
+});
+
+test("the window is asked to resize once the rows are drawn", () => {
+  // The class that expands the meter fires before the rows are drawn, so the
+  // measurement would take the old height: the resize is asked for after.
+  const meter = meterHarness({ rows: PARTY });
+  meter.draw();
+  assert.equal(meter.resizes.length, 1, "the window was not asked to resize");
+  assert.ok(meter.resizes[0] > 0, "the resize was asked for before the rows were drawn");
+
+  // The collapse asks for it too, or the window stays at the taller size.
+  meter.state.expanded = true;
+  meter.draw();
+  meter.state.expanded = false;
+  meter.draw();
+  assert.equal(meter.resizes.length, 3);
+  assert.ok(meter.resizes[1] > meter.resizes[0], "the expansion did not make the window taller");
+});
+
 // The idle rule's settings, and the flag that keeps the meter up while it
 // is being dragged.
 function idleContext() {

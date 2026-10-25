@@ -271,6 +271,7 @@ The keys are registered by a small helper, `a2tools-hotkeys`, installed next to 
 hl.bind("CTRL + ALT + R", hl.dsp.global("com.a2tools.dps-meter:reset"))
 hl.bind("CTRL + ALT + Up", hl.dsp.global("com.a2tools.dps-meter:toggle"))
 hl.bind("CTRL + ALT + L", hl.dsp.global("com.a2tools.dps-meter:lock"))
+hl.bind("CTRL + ALT + O", hl.dsp.global("com.a2tools.dps-meter:plugins"))
 hl.bind("CTRL + ALT + P", hl.dsp.global("com.a2tools.dps-meter:pin"))
 ```
 
@@ -280,6 +281,7 @@ On an older Hyprland that uses `hyprland.conf`:
 bind = CTRL ALT, R, global, com.a2tools.dps-meter:reset
 bind = CTRL ALT, Up, global, com.a2tools.dps-meter:toggle
 bind = CTRL ALT, L, global, com.a2tools.dps-meter:lock
+bind = CTRL ALT, O, global, com.a2tools.dps-meter:plugins
 bind = CTRL ALT, P, global, com.a2tools.dps-meter:pin
 ```
 

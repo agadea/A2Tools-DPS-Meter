@@ -4,6 +4,7 @@ import test from "node:test";
 
 const css = readFileSync(new URL("../src/styles.css", import.meta.url), "utf8");
 const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+const meterSource = readFileSync(new URL("../public/src/js/meter.js", import.meta.url), "utf8");
 
 // The rule body of a top-level selector, anchored to the line start so a
 // longer selector that ends in the same name cannot stand in for it.
@@ -109,4 +110,16 @@ test("the pin button is always there", () => {
   const pin = rulesFor(".pinBtn").find((r) => /opacity:\s*1/.test(r.body));
   assert.ok(pin, "the pin button is never shown");
   assert.match(pin.body, /pointer-events:\s*auto/);
+});
+
+test("the row's percentage comes from the tested helper", () => {
+  // There is no DOM harness, so nothing exercises renderRows: the decision
+  // could be inlined there and the suite would stay green. This pins the one
+  // line that decides it.
+  const body = meterSource.slice(
+    meterSource.indexOf("const renderRows ="),
+    meterSource.indexOf("const flushPendingRows =")
+  );
+  assert.ok(body.length > 0, "renderRows is gone from meter.js");
+  assert.match(body, /contributionFor\(/);
 });

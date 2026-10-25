@@ -7051,7 +7051,8 @@ class DpsApp {
   }
 
   // Where the buttons that stay clickable are, so the backend keeps them
-  // clickable while the rest of the window lets the clicks through.
+  // clickable while the rest of the window lets the clicks through. The empty
+  // list is sent too: it clears the rectangles the backend still holds.
   _sendOverlayButtonRects() {
     const rects = [];
     for (const el of [this.lockBtn, this.pinBtn]) {
@@ -7060,7 +7061,6 @@ class DpsApp {
       if (!r.width || !r.height) continue;
       rects.push([r.left, r.top, r.width, r.height]);
     }
-    if (!rects.length) return;
     window.javaBridge?.setOverlayButtonRects?.(rects, window.devicePixelRatio || 1);
   }
 

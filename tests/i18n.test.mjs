@@ -33,6 +33,35 @@ test("every locale carries the keys the minimal HUD added", () => {
   }
 });
 
+test("the other languages are not the English text", () => {
+  // A locale that falls back to English carries the key, so the check above
+  // passes: only a difference says the file is really translated.
+  const english = readUi("en");
+  for (const locale of locales) {
+    if (locale === "en") continue;
+    const strings = readUi(locale);
+    for (const key of hudKeys) {
+      const value = resolveKey(strings, key);
+      assert.notEqual(value, resolveKey(english, key), `${locale}.json has the English text for ${key}`);
+    }
+  }
+});
+
+test("every locale carries the same keys", () => {
+  // The invariant the ten-file sweep leans on: a key added to one file
+  // alone would leave the others without it.
+  const flatten = (object, prefix = "") =>
+    Object.entries(object).flatMap(([key, value]) =>
+      value && typeof value === "object"
+        ? flatten(value, `${prefix}${key}.`)
+        : [`${prefix}${key}`]
+    );
+  const english = flatten(readUi("en")).sort();
+  for (const locale of locales) {
+    assert.deepEqual(flatten(readUi(locale)).sort(), english, `${locale}.json does not carry the same keys`);
+  }
+});
+
 test("the English dictionary matches the markup's fallback text", () => {
   const markup = readFileSync(new URL("../index.html", import.meta.url), "utf8");
   const english = readUi("en");

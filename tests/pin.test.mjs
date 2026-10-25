@@ -82,4 +82,11 @@ test("both buttons that stay clickable are sent, not only the lock's", () => {
   app._sendOverlayButtonRects();
   assert.equal(sent.length, 2);
   assert.deepEqual(Array.from(sent[1][0]).map((r) => Array.from(r)), [[130, 10, 20, 20]]);
+
+  // With no button left, the empty list is sent: the rectangles the backend
+  // still holds would keep swallowing the clicks over the game.
+  app.pinBtn = null;
+  app._sendOverlayButtonRects();
+  assert.equal(sent.length, 3);
+  assert.deepEqual(Array.from(sent[2][0]), []);
 });

@@ -117,6 +117,22 @@ function shareFor(row, mode, totals) {
   return ((Number(row?.totalDamage) || 0) / total) * 100;
 }
 
+// The totals a row's percentage is a share of: the damage, the healing and
+// the stagger of the set the meter measures against. A row with no id is not
+// drawn, so it is not in the totals either.
+function totalsFor(rows) {
+  const totals = { damage: 0, heal: 0, stagger: 0 };
+  for (const row of rows || []) {
+    if (!row) continue;
+    const id = row.id ?? row.name;
+    if (!id) continue;
+    totals.damage += Number(row.totalDamage) || 0;
+    totals.heal += Number(row.healAmount) || 0;
+    totals.stagger += Number(row.stagger) || 0;
+  }
+  return totals;
+}
+
 // What a row's percentage says and how the row is marked by it. An empty
 // share says nothing and marks nothing. A share of zero is a real zero —
 // "0.0%" and the error class, as a player who dealt no damage already sees
@@ -336,10 +352,10 @@ const createMeterUI = ({
     return view;
   };
 
-  const getDisplayRows = (sortedAll) =>
+  const getDisplayRows = (sortedAll, expanded = getExpanded() === true) =>
     pickDisplayRows(sortedAll, {
       limit: (typeof getPlayerLimit === "function" ? getPlayerLimit() : 6) || 6,
-      expanded: getExpanded() === true,
+      expanded: expanded === true,
       pinUserToTop: typeof getPinUserToTop === "function" && getPinUserToTop(),
     });
 
@@ -376,7 +392,7 @@ const createMeterUI = ({
 
   let lastOrderKey = "";
 
-  const renderRows = (rows, rankById) => {
+  const renderRows = (rows, rankById, denominatorRows) => {
     const now = nowMs();
     const nextVisibleIds = new Set();
 
@@ -391,10 +407,10 @@ const createMeterUI = ({
       const metricValue = Number(resolveMetric(row)?.value) || 0;
       if (metricValue > topMetric) topMetric = metricValue;
     }
-    const visibleTotalDamage = rows.reduce((sum, row) => sum + (Number(row?.totalDamage) || 0), 0);
-    const visibleTotalHeal = rows.reduce((sum, row) => sum + (Number(row?.healAmount) || 0), 0);
-    const visibleTotalStagger = rows.reduce((sum, row) => sum + (Number(row?.stagger) || 0), 0);
-    const totals = { damage: visibleTotalDamage, heal: visibleTotalHeal, stagger: visibleTotalStagger };
+    // The denominator is the expanded set — the rows up to "Max players
+    // shown" — in the compact and the expanded meter alike, so a row's
+    // percentage does not change when the meter expands.
+    const totals = totalsFor(denominatorRows || rows);
     const mode = getDisplayMode();
 
     // Build order key to detect if DOM reordering is needed
@@ -620,7 +636,10 @@ const createMeterUI = ({
         if (id) rankById.set(id, index + 1);
       });
 
-    const displayRows = getDisplayRows(arr);
+    // The expanded set is the denominator of the percentages, in the compact
+    // meter as well as in the expanded one.
+    const expandedRows = getDisplayRows(arr, true);
+    const displayRows = getExpanded() ? expandedRows : getDisplayRows(arr, false);
     // Only the rows that fit below the window are drawn: the overlay grows
     // from its top-left corner, and a window that grows past the screen edge
     // is moved back by the window manager (issue #11).
@@ -628,7 +647,12 @@ const createMeterUI = ({
     const pitch = rowPitchPx(elList);
     const drawnRows = displayRows.slice(0, pickRowCount(displayRows, room, pitch, lastRowCount));
     lastRowCount = drawnRows.length;
-    renderRows(drawnRows, rankById);
+    renderRows(drawnRows, rankById, expandedRows);
+    // The native window is sized to its content, so it has to be asked to
+    // resize once the rows are in the DOM — the class that expands the meter
+    // fires before they are drawn, and the measurement would take the old
+    // height. The bridge skips the call when the size did not change.
+    window.javaBridge?.updateOverlaySize?.();
   };
 
   const updateFromRows = (rows) => {

@@ -39,7 +39,7 @@ The meter keeps its structure but sheds weight:
 | Boss HP | full-bleed band, text over it | 3 px hairline under the header; the % sits in the header |
 | Bar | gradient tint + lit edge, 80 % opacity | flat tint, no lit edge, one accent colour on your own row |
 | Rows shown | the whole party, up to "Max players shown" (6) | the top three; the rest on hover |
-| Row content | rank, class icon, name, badges, combat power, DPS, contribution % | rank, name, DPS — the rest on hover |
+| Row content | rank, class icon, name, badges, combat power, DPS, contribution % | rank, name, DPS, contribution % — the rest on hover |
 
 Themes stay (they are palettes, not noise). Bar textures stay available and
 are already off by default.
@@ -84,11 +84,15 @@ skill breakdown, which is where the detail belongs.
 
 ### 4. Accessory data on hover
 
-Per row, the class icon, the supporter and A2Tools badges, the combat power
-figure and the contribution percentage are hidden by default. Hovering the
-meter fades them in (140 ms). The row does not jump: the extra elements have
-a fixed width that goes from 0 to full, and the name column gives up the
-space, so the DPS number stays where it was.
+Per row, the class icon, the supporter and A2Tools badges and the combat power
+figure are hidden by default. Hovering the meter fades them in (140 ms). The
+row does not jump: the extra elements have a fixed width that goes from 0 to
+full, and the name column gives up the space, so the DPS number stays where
+it was.
+
+The contribution percentage is **always visible**, in the compact meter as
+well as in the expanded one: it is the share the row is about, and the user
+asked for it to be there.
 
 With the pin on, they are always shown — the current look.
 
@@ -134,9 +138,11 @@ metric.
 A row's share of nothing is left empty rather than shown as "0.0%": in HEAL
 mode, when nobody healed, there is no percentage to show.
 
-The denominator is the visible rows, as it is for damage today: with "max
-players shown" set below the party size, the shares are of the visible rows,
-not of the whole party.
+The denominator is the expanded set — the rows up to "Max players shown" — in
+the compact and the expanded meter alike, so a row's percentage does not
+change when the meter expands. With "max players shown" set below the party
+size, the shares are of those rows, not of the whole party. A row that is not
+drawn (no id) is in neither the numerator nor the denominator.
 
 ### 7. Hiding when idle
 
@@ -152,6 +158,10 @@ arrives.
 
 The meter does **not** hide when it is pinned, or when a panel or a card is
 open over it.
+
+**The pin is what keeps it up — hovering does not.** A pointer resting on the
+meter is not activity, so the idle rule applies to a hovered meter as it does
+to any other; the pin is the documented answer for a meter that stays up.
 
 This is decided in the backend's tick loop, next to the existing
 `hideWhenGameClosed` and `hideWhenSolo` conditions — the same place, the same
@@ -188,11 +198,6 @@ New:
 
 - Hide when idle — on by default.
 - Idle seconds — 15.
-
-**Appearance**
-
-- Extra data on hover — on by default. Off means the accessory data is always
-  shown (today's behaviour).
 
 **Keybinds**
 
