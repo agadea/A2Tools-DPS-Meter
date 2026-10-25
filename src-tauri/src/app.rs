@@ -246,8 +246,8 @@ enum MeterAction {
     Keep,
 }
 
-/// The decision, as a pure function of the reasons now, the reasons before
-/// and whether the player wants the meter.
+/// The decision, as a pure function of the reasons now, the reasons before,
+/// whether the player wants the meter, and whether the meter is really down.
 ///
 /// Every reason is compared with its own previous value: a reason that
 /// starts holding hides the meter, a reason that stops holding shows it
@@ -257,7 +257,16 @@ enum MeterAction {
 ///
 /// The player's own Show/Hide is a layer above all of it: the loop never
 /// shows the meter when it is off, and never turns it off either.
-fn hide_action(now: HideReasons, before: HideReasons, wanted: bool) -> (MeterAction, HideReasons) {
+///
+/// A show that changes nothing does not happen: the meter is already up,
+/// and showing it again would move the anchor and push the real hide a
+/// window later.
+fn hide_action(
+    now: HideReasons,
+    before: HideReasons,
+    wanted: bool,
+    down: bool,
+) -> (MeterAction, HideReasons) {
     let current = HideReasons {
         closed: now.closed,
         solo: now.solo,
@@ -289,6 +298,12 @@ fn hide_action(now: HideReasons, before: HideReasons, wanted: bool) -> (MeterAct
         MeterAction::Show
     } else {
         MeterAction::Keep
+    };
+    // Only a show that changes something: the meter is really down.
+    let action = if action == MeterAction::Show && !down {
+        MeterAction::Keep
+    } else {
+        action
     };
     (action, current)
 }
@@ -3863,6 +3878,13 @@ pub fn run() {
                                 HideReasons { closed, solo, idle },
                                 reasons,
                                 meter_wanted(&handle),
+                                // Whether the meter is really down: a show that
+                                // changes nothing must not happen, or the anchor
+                                // would move and the hide would land a window
+                                // later.
+                                handle
+                                    .get_webview_window("main")
+                                    .is_some_and(|window| meter_is_down(&window)),
                             );
                             reasons = next;
                             match action {
@@ -3876,12 +3898,7 @@ pub fn run() {
                                     }
                                 }
                                 MeterAction::Show => {
-                                    // Only when the meter is really down: a show
-                                    // that changes nothing would push the idle
-                                    // window later, and the anchor moves with it.
-                                    if let Some(window) = handle.get_webview_window("main")
-                                        && meter_is_down(&window)
-                                    {
+                                    if let Some(window) = handle.get_webview_window("main") {
                                         show_meter_again(&handle, &window);
                                     }
                                 }
@@ -4265,7 +4282,7 @@ mod tests {
     fn the_game_opening_shows_the_meter_even_while_nothing_happens() {
         let before = HideReasons { closed: true, solo: false, idle: false };
         let now = HideReasons { closed: false, solo: false, idle: true };
-        let (action, _) = hide_action(now, before, true);
+        let (action, _) = hide_action(now, before, true, true);
         assert_eq!(action, MeterAction::Show);
     }
 
@@ -4276,7 +4293,7 @@ mod tests {
     fn a_hard_reason_that_starts_hides_the_meter_whatever_held_it_before() {
         let before = HideReasons { closed: false, solo: false, idle: true };
         let now = HideReasons { closed: true, solo: false, idle: false };
-        let (action, _) = hide_action(now, before, true);
+        let (action, _) = hide_action(now, before, true, true);
         assert_eq!(action, MeterAction::Hide);
     }
 
@@ -4286,7 +4303,7 @@ mod tests {
     fn a_hard_reason_suspends_the_idle_one() {
         let before = HideReasons::default();
         let now = HideReasons { closed: true, solo: false, idle: true };
-        let (action, next) = hide_action(now, before, true);
+        let (action, next) = hide_action(now, before, true, true);
         assert_eq!(action, MeterAction::Hide);
         assert!(!next.idle, "the idle reason waits while the game is closed");
     }
@@ -4298,13 +4315,30 @@ mod tests {
             HideReasons { closed: false, solo: false, idle: true },
             HideReasons::default(),
             true,
+            true,
         );
         assert_eq!(action, MeterAction::Hide);
         let (action, _) = hide_action(
             HideReasons { closed: false, solo: false, idle: false },
             HideReasons { closed: false, solo: false, idle: true },
             true,
+            true,
         );
+        assert_eq!(action, MeterAction::Show);
+    }
+
+    /// A show that changes nothing does not happen: the meter is already up,
+    /// and showing it again would move the anchor and push the real hide a
+    /// window later.
+    #[test]
+    fn a_show_that_changes_nothing_is_not_a_show() {
+        let before = HideReasons { closed: false, solo: false, idle: true };
+        let now = HideReasons { closed: false, solo: false, idle: false };
+        // The idle reason released, but the meter is up already.
+        let (action, _) = hide_action(now, before, true, false);
+        assert_eq!(action, MeterAction::Keep, "the meter is up: nothing to show");
+        // The same, with the meter really down: that is a show.
+        let (action, _) = hide_action(now, before, true, true);
         assert_eq!(action, MeterAction::Show);
     }
 
@@ -4312,10 +4346,12 @@ mod tests {
     /// leaves the meter alone, either way.
     #[test]
     fn the_loop_leaves_the_meter_alone_when_the_player_turned_it_off() {
+        let before = HideReasons { closed: false, solo: false, idle: true };
         let (action, _) = hide_action(
             HideReasons { closed: false, solo: false, idle: true },
-            HideReasons::default(),
+            before,
             false,
+            true,
         );
         assert_eq!(action, MeterAction::Keep);
         // Not even when the game opens.
@@ -4323,8 +4359,19 @@ mod tests {
             HideReasons { closed: false, solo: false, idle: false },
             HideReasons { closed: true, solo: false, idle: false },
             false,
+            true,
         );
         assert_eq!(action, MeterAction::Keep);
+        // The reasons do not drift while the meter is off: they wait for the
+        // player to turn it back on.
+        let (action, next) = hide_action(
+            HideReasons { closed: true, solo: false, idle: false },
+            before,
+            false,
+            true,
+        );
+        assert_eq!(action, MeterAction::Keep);
+        assert_eq!(next, before, "the reasons wait while the meter is off");
     }
 
     /// A minimized window counts as down: the Windows hide minimizes the
