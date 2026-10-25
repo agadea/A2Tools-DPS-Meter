@@ -85,6 +85,9 @@ pub struct AppState {
     /// never hides. The backend owns it (the hotkey is here), and the page
     /// only mirrors it.
     pub pinned: std::sync::atomic::AtomicBool,
+    /// The player is holding the meter (a drag): the idle rule must not hide
+    /// the window out from under the pointer.
+    pub interacting: std::sync::atomic::AtomicBool,
     /// What the last account check found: `None` until one has run, then
     /// `Some(None)` signed out or `Some(Some(_))` signed in. Settings shows it
     /// at once instead of "checking" for as long as the server takes.
@@ -1435,6 +1438,13 @@ fn set_pinned(app: tauri::AppHandle, pinned: bool) {
 #[tauri::command]
 fn is_pinned(state: tauri::State<'_, AppState>) -> bool {
     state.pinned.load(std::sync::atomic::Ordering::SeqCst)
+}
+
+/// The player is holding the meter (a drag). The idle rule reads it, so the
+/// meter does not vanish in the middle of a drag.
+#[tauri::command]
+fn set_meter_interacting(state: tauri::State<'_, AppState>, interacting: bool) {
+    state.interacting.store(interacting, std::sync::atomic::Ordering::SeqCst);
 }
 
 #[tauri::command]
@@ -3422,6 +3432,7 @@ pub fn run() {
                 capture_suspended: Arc::new(std::sync::atomic::AtomicBool::new(false)),
                 overlay_lock: Arc::new(OverlayLock::default()),
                 pinned: std::sync::atomic::AtomicBool::new(pinned),
+                interacting: std::sync::atomic::AtomicBool::new(false),
                 #[cfg(feature = "online")]
                 account_seen: Mutex::new(None),
                 #[cfg(feature = "online")]
@@ -3667,8 +3678,9 @@ pub fn run() {
                 let mut tick_count: u64 = 0;
                 let mut hide_delay: u64 = 0; // ticks to wait before hiding
                 let mut last_ping: Option<u64> = None;
-                // The meter hidden because AION2 is closed (Settings).
-                let mut hidden_closed = false;
+                // The meter hidden because AION2 is closed, because you are
+                // alone, or because nothing is happening.
+                let mut hidden_away = false;
                 // The other windows hidden with the meter (auto-hide), and how
                 // many ticks nothing of ours or the game has been in front.
                 let mut hidden_with_meter: std::collections::HashSet<String> = Default::default();
@@ -3704,18 +3716,39 @@ pub fn run() {
                             }
                         }
 
-                        // --- Hide while AION2 is closed, or while solo (every 2 s) ---
+                        // --- Hide while AION2 is closed, while solo, or while
+                        // nothing is happening (every 2 s) ---
                         // Hidden as the game closes or the party breaks up (or
                         // the option is turned on then), shown as it opens or a
                         // party forms: in between, the keybind can still bring
                         // the meter back. Solo is fewer than two in the party,
                         // as the game last told (Hirai, 2026-10-22).
+                        // Idle is no damage for a while and no target being
+                        // fought: the pin keeps the meter up, and so do an
+                        // open card and a drag on the meter itself.
                         if tick_count % 4 == 0 {
                             let on = |key: &str| state.settings.get(key).as_deref() == Some("true");
                             let closed = on("dpsMeter.hideWhenGameClosed") && !platform::window_detector::find_aion2_window();
                             let solo = on("dpsMeter.hideWhenSolo") && state.data_storage.get_party_members().len() < 2;
-                            let want = meter_wanted(&handle) && (closed || solo);
-                            if want != hidden_closed {
+                            // Off only when it is turned off: the setting is on
+                            // by default.
+                            let hide_when_idle =
+                                state.settings.get("dpsMeter.hideWhenIdle").as_deref() != Some("false");
+                            let idle_seconds = state
+                                .settings
+                                .get("dpsMeter.idleSeconds")
+                                .and_then(|v| v.trim().parse::<i64>().ok())
+                                .unwrap_or(15)
+                                .clamp(1, 600);
+                            let idle = hide_when_idle
+                                && !state.pinned.load(std::sync::atomic::Ordering::SeqCst)
+                                && !state.interacting.load(std::sync::atomic::Ordering::SeqCst)
+                                && !state.overlay_lock.card_open.load(std::sync::atomic::Ordering::SeqCst)
+                                && state
+                                    .data_storage
+                                    .is_idle(idle_seconds * 1000, crate::clock::now_ms());
+                            let want = meter_wanted(&handle) && (closed || solo || idle);
+                            if want != hidden_away {
                                 if let Some(window) = handle.get_webview_window("main") {
                                     if want {
                                         platform::window::minimize_off_top(&window);
@@ -3723,13 +3756,13 @@ pub fn run() {
                                         show_meter_again(&handle, &window);
                                     }
                                 }
-                                hidden_closed = want;
+                                hidden_away = want;
                             }
                         }
 
                         // --- Auto-hide when AION2 loses focus (every tick) ---
                         let auto_hide = tick_count > 20
-                            && !hidden_closed
+                            && !hidden_away
                             && state.settings.get("dpsMeter.autoHideMeter")
                                 .unwrap_or_default() == "true"
                             && meter_wanted(&handle);
@@ -4020,6 +4053,7 @@ pub fn run() {
             set_overlay_button_rects,
             set_pinned,
             is_pinned,
+            set_meter_interacting,
             is_capture_suspended,
             resize_window,
             main_window_ready,

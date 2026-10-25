@@ -2441,6 +2441,39 @@ impl DataStorage {
         self.inner.read().current_target
     }
 
+    /// When the last damage was recorded anywhere, in clock ms.
+    /// `NEVER_MS` when no damage has ever been recorded.
+    pub fn last_damage_ms(&self) -> i64 {
+        self.last_damage_ms.load(Ordering::Relaxed)
+    }
+
+    /// Whether nothing is happening: no damage anywhere for `idle_ms`, and
+    /// the target the meter follows (if any) has taken no damage for the
+    /// same time. Both have to be quiet: a fight elsewhere still counts, and
+    /// so does a target that is being fought.
+    pub fn is_idle(&self, idle_ms: i64, now_ms: i64) -> bool {
+        let idle_ms = idle_ms.max(0);
+        let last = self.last_damage_ms();
+        // NEVER_MS means no damage has ever been recorded: there is no clock
+        // to measure from, but nothing is happening either.
+        let quiet = if last == NEVER_MS {
+            true
+        } else {
+            now_ms.saturating_sub(last) >= idle_ms
+        };
+        if !quiet {
+            return false;
+        }
+        let target = self.current_target();
+        if target <= 0 {
+            return true;
+        }
+        match self.get_target_snapshot_light(target) {
+            Some(snapshot) => now_ms.saturating_sub(snapshot.last_damage_time) >= idle_ms,
+            None => true,
+        }
+    }
+
     /// Get a snapshot of all target combat aggregates.
     /// This is cheap: clones a small map of aggregates, not raw packets.
     pub fn get_combat_snapshot(&self) -> HashMap<i32, TargetCombatData> {
@@ -4056,5 +4089,65 @@ mod tests {
         s.append_damage(hit(202, 900, 2_000, 300, false));
         s.note_party_left();
         assert!(s.take_combat_reset_requested(), "an open-world party: someone else on the meter");
+    }
+}
+
+/// The idle rule: the meter hides when nothing is happening.
+#[cfg(test)]
+mod idle_tests {
+    use super::*;
+    use crate::clock;
+
+    fn hit_at(actor: i32, target: i32, at: i64, damage: i32) -> ParsedDamagePacket {
+        let mut p = ParsedDamagePacket::new();
+        p.set_actor_id(actor);
+        p.set_target_id(target);
+        p.set_skill_code(11010000);
+        p.set_damage(damage);
+        p.set_timestamp(at);
+        p
+    }
+
+    /// Nothing has ever happened: there is no damage and no target, so the
+    /// meter has nothing to show.
+    #[test]
+    fn a_storage_that_never_saw_damage_is_idle() {
+        clock::set_override(Some(1_000));
+        let s = DataStorage::new();
+        assert_eq!(s.last_damage_ms(), NEVER_MS, "no damage was ever recorded");
+        assert!(s.is_idle(15_000, clock::now_ms()));
+    }
+
+    /// Damage a moment ago keeps the meter up.
+    #[test]
+    fn a_storage_with_recent_damage_is_not_idle() {
+        clock::set_override(Some(1_000_000));
+        let s = DataStorage::new();
+        s.append_damage(hit_at(101, 900, 1_000_000, 500));
+        clock::set_override(Some(1_010_000));
+        assert!(!s.is_idle(15_000, clock::now_ms()), "damage ten seconds ago");
+    }
+
+    /// The same damage, but old enough: the meter has nothing to show.
+    #[test]
+    fn a_storage_with_old_damage_is_idle() {
+        clock::set_override(Some(1_000_000));
+        let s = DataStorage::new();
+        s.append_damage(hit_at(101, 900, 1_000_000, 500));
+        clock::set_override(Some(1_020_000));
+        assert!(s.is_idle(15_000, clock::now_ms()), "damage twenty seconds ago");
+    }
+
+    /// The target the meter follows counts too: the rest of the world may be
+    /// quiet, but a target that is being fought keeps the meter up.
+    #[test]
+    fn a_target_that_is_being_fought_is_not_idle() {
+        clock::set_override(Some(1_060_000));
+        let s = DataStorage::new();
+        s.append_damage(hit_at(101, 900, 1_060_000, 500));
+        s.set_current_target(900);
+        // The rest of the world went quiet; the target did not.
+        s.last_damage_ms.store(940_000, Ordering::Relaxed);
+        assert!(!s.is_idle(15_000, clock::now_ms()), "the target is still being hit");
     }
 }

@@ -310,6 +310,10 @@
     "autoHideMeter": "Ausblenden, wenn AION2 nicht im Vordergrund ist",
     "hideWhenGameClosed": "Ausblenden, wenn AION2 geschlossen ist",
     "hideWhenSolo": "Nur in einer Gruppe anzeigen",
+    "hideWhenIdle": "Ausblenden, wenn nichts passiert",
+    "idleSeconds": {
+      "label": "Wartezeit in Sekunden"
+    },
     "showSuspendBtn": "Taste „Erfassung pausieren“ anzeigen",
     "showLockBtn": "Taste für Durchklick-Sperre anzeigen",
     "playerLimit": {
@@ -582,7 +586,9 @@
       "showMeter": "Aus: Nur deine Plugins sind zu sehen. Das Meter liest im Hintergrund weiter Kämpfe mit und lädt hoch. Zurückholen kannst du es hier, mit dem Ein-/Ausblenden-Hotkey oder mit dem Meter-Knopf an einem Plugin-Fenster.",
       "clearOnZone": "Wann der letzte Kampf nach einem Zonenwechsel aus dem Meter verschwindet. Jeder Kampf bleibt so oder so im Verlauf.",
       "hideWhenGameClosed": "Das Meter wird ausgeblendet, solange das Spiel nicht läuft, und erscheint wieder, wenn es startet.",
-      "hideWhenSolo": "Das Meter wird ausgeblendet, solange du in keiner Gruppe bist, und erscheint wieder, wenn du einer beitrittst. Die Tastenkombination zum Ein-/Ausblenden holt es trotzdem hervor."
+      "hideWhenSolo": "Das Meter wird ausgeblendet, solange du in keiner Gruppe bist, und erscheint wieder, wenn du einer beitrittst. Die Tastenkombination zum Ein-/Ausblenden holt es trotzdem hervor.",
+      "hideWhenIdle": "Das Meter wird ausgeblendet, wenn nichts passiert: eine Weile lang kein Schaden und kein Ziel im Kampf. Es erscheint wieder beim nächsten Treffer. Das Anheften hält es sichtbar.",
+      "idleSeconds": "Wie lange das Meter wartet, bevor es sich ausblendet, wenn nichts passiert."
     },
     "globalHotkeys": "Tastenkürzel verwenden",
     "hotkeyConsent": {

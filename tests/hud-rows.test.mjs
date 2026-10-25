@@ -206,3 +206,114 @@ test("a small share is marked, a large one is not", () => {
   assert.deepEqual(contributionIn(meterContext(), 50), { text: "50.0%", className: "" });
 });
 
+// The idle rule's settings, and the flag that keeps the meter up while it
+// is being dragged.
+function idleContext() {
+  const window = { addEventListener() {}, devicePixelRatio: 1 };
+  const controls = {};
+  const ctx = vm.createContext({
+    window,
+    console,
+    document: {
+      readyState: "loading",
+      addEventListener() {},
+      querySelector: (selector) => controls[selector] ?? null,
+    },
+  });
+  vm.runInContext(readFileSync(new URL("../public/src/js/core.js", import.meta.url), "utf8"), ctx);
+  return { ctx, controls };
+}
+
+// A control with the handlers the page wires to it.
+function control(extra = {}) {
+  const handlers = {};
+  return {
+    checked: false,
+    value: "",
+    handlers,
+    addEventListener(name, handler) { handlers[name] = handler; },
+    fire(name, event) { handlers[name]?.(event); },
+    ...extra,
+  };
+}
+
+test("the idle settings are written when the checkbox and the input change", () => {
+  const { ctx, controls } = idleContext();
+  const written = [];
+  ctx.window.javaBridge = {
+    getSetting: () => undefined,
+    setSetting: (key, value) => written.push([key, value]),
+  };
+  const checkbox = control();
+  const input = control();
+  controls[".hideWhenIdleCheckbox"] = checkbox;
+  controls[".idleSecondsInput"] = input;
+
+  const app = vm.runInContext("new DpsApp()", ctx);
+  app.setupIdleSettings();
+
+  checkbox.fire("change", { target: { checked: false } });
+  input.fire("change", { target: { value: "30" } });
+  assert.deepEqual(written, [
+    ["dpsMeter.hideWhenIdle", "false"],
+    ["dpsMeter.idleSeconds", "30"],
+  ]);
+});
+
+test("the idle settings have their defaults: on, and fifteen seconds", () => {
+  const { ctx, controls } = idleContext();
+  ctx.window.javaBridge = { getSetting: () => undefined };
+  const checkbox = control();
+  const input = control();
+  controls[".hideWhenIdleCheckbox"] = checkbox;
+  controls[".idleSecondsInput"] = input;
+
+  const app = vm.runInContext("new DpsApp()", ctx);
+  app.setupIdleSettings();
+
+  assert.equal(checkbox.checked, true, "the meter hides when idle, unless turned off");
+  assert.equal(input.value, "15");
+});
+
+test("the idle seconds stay inside what the backend accepts", () => {
+  const { ctx, controls } = idleContext();
+  const written = [];
+  ctx.window.javaBridge = {
+    getSetting: () => undefined,
+    setSetting: (key, value) => written.push([key, value]),
+  };
+  const input = control();
+  controls[".idleSecondsInput"] = input;
+
+  const app = vm.runInContext("new DpsApp()", ctx);
+  app.setupIdleSettings();
+
+  input.fire("change", { target: { value: "9999" } });
+  input.fire("change", { target: { value: "0" } });
+  assert.deepEqual(written, [
+    ["dpsMeter.idleSeconds", "600"],
+    ["dpsMeter.idleSeconds", "15"],
+  ]);
+});
+
+test("the backend is told when the meter is being dragged", () => {
+  const { ctx, controls } = idleContext();
+  const told = [];
+  ctx.window.javaBridge = { setMeterInteracting: (on) => told.push(on) };
+  const meter = control();
+  controls[".meter"] = meter;
+  const windowHandlers = {};
+  ctx.window.addEventListener = (name, handler) => { windowHandlers[name] = handler; };
+
+  const app = vm.runInContext("new DpsApp()", ctx);
+  app._watchMeterInteraction();
+
+  meter.fire("pointerdown", {});
+  assert.deepEqual(told, [true]);
+  windowHandlers.pointerup?.({});
+  assert.deepEqual(told, [true, false]);
+  meter.fire("pointerdown", {});
+  meter.fire("pointercancel", {});
+  assert.deepEqual(told, [true, false, true, false]);
+});
+

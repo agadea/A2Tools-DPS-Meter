@@ -1816,7 +1816,8 @@ body.mainPlayerDpsBold :is(.meter, .barPreviewPanel) .item .content .dps > p {
   min-width: 0;
 }
 .settingsPanel .characterNameInput,
-.settingsPanel .localActorIdInput {
+.settingsPanel .localActorIdInput,
+.settingsPanel .idleSecondsInput {
   height: var(--set-field-h);
   box-sizing: border-box;
   padding: 0 8px;
@@ -1836,8 +1837,14 @@ body.mainPlayerDpsBold :is(.meter, .barPreviewPanel) .item .content .dps > p {
   font-family: var(--hud-tech);
   font-variant-numeric: tabular-nums;
 }
+.settingsPanel .idleSecondsInput {
+  width: 76px;
+  font-family: var(--hud-tech);
+  font-variant-numeric: tabular-nums;
+}
 .settingsPanel .characterNameInput:focus,
-.settingsPanel .localActorIdInput:focus {
+.settingsPanel .localActorIdInput:focus,
+.settingsPanel .idleSecondsInput:focus {
   outline: none;
   border-color: var(--settings-accent, var(--isUser-fill));
 }

@@ -320,6 +320,10 @@
     "autoHideMeter": "Hide when AION2 isn't focused",
     "hideWhenGameClosed": "Hide while AION2 is closed",
     "hideWhenSolo": "Show only in a party",
+    "hideWhenIdle": "Hide when nothing is happening",
+    "idleSeconds": {
+      "label": "Idle seconds"
+    },
     "showSuspendBtn": "Show pause capture button",
     "showLockBtn": "Show click-through lock button",
     "playerLimit": {
@@ -594,7 +598,9 @@
       "showMeter": "Off: only your plugins show. The meter keeps reading combat and uploading in the background. Bring it back here, with the show/hide hotkey, or with the meter button on a plugin window.",
       "clearOnZone": "When the last fight leaves the meter after the zone changes. Every fight stays in History either way.",
       "hideWhenGameClosed": "The meter hides while the game isn't running, and comes back when it starts.",
-      "hideWhenSolo": "The meter hides while you're not in a party, and comes back when you join one. The Show/Hide keybind still brings it up."
+      "hideWhenSolo": "The meter hides while you're not in a party, and comes back when you join one. The Show/Hide keybind still brings it up.",
+      "hideWhenIdle": "The meter hides when nothing is happening: no damage for a while and no target being fought. It comes back with the next hit. The pin keeps it up.",
+      "idleSeconds": "How long the meter waits before it hides itself when nothing is happening."
     },
     "globalHotkeys": "Use keybinds",
     "hotkeyConsent": {

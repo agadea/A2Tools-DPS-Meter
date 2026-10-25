@@ -131,6 +131,8 @@ class DpsApp {
       autoHideMeter: "dpsMeter.autoHideMeter",
       hideWhenGameClosed: "dpsMeter.hideWhenGameClosed",
       hideWhenSolo: "dpsMeter.hideWhenSolo",
+      hideWhenIdle: "dpsMeter.hideWhenIdle",
+      idleSeconds: "dpsMeter.idleSeconds",
       globalHotkeys: "dpsMeter.globalHotkeys",
       bossLogs: "dpsMeter.bossLogsEnabled",
       saveRawPackets: "dpsMeter.saveRawPackets",
@@ -397,6 +399,7 @@ class DpsApp {
 
     this.bindHeaderButtons();
     this.bindDragToMoveWindow();
+    this._watchMeterInteraction();
     this.bindResizeHandle();
     this.initHoverTooltip();
     this._bindMeterHover();
@@ -2781,6 +2784,31 @@ class DpsApp {
     this.setAccountState(label);
   }
 
+  // Hide the meter when nothing is happening: the backend's tick loop reads
+  // both settings. On by default, and the pin keeps the meter up anyway.
+  setupIdleSettings() {
+    const checkbox = document.querySelector(".hideWhenIdleCheckbox");
+    if (checkbox) {
+      const stored = this.safeGetSetting(this.storageKeys.hideWhenIdle);
+      checkbox.checked = stored === null || stored === undefined ? true : stored === "true";
+      checkbox.addEventListener("change", (event) => {
+        this.safeSetSetting(this.storageKeys.hideWhenIdle, String(!!event.target?.checked));
+      });
+      this.hideWhenIdleCheckbox = checkbox;
+    }
+    const input = document.querySelector(".idleSecondsInput");
+    if (input) {
+      const stored = this.safeGetSetting(this.storageKeys.idleSeconds);
+      input.value = stored || "15";
+      input.addEventListener("change", (event) => {
+        const seconds = Math.min(600, Math.max(1, parseInt(event.target?.value, 10) || 15));
+        event.target.value = String(seconds);
+        this.safeSetSetting(this.storageKeys.idleSeconds, String(seconds));
+      });
+      this.idleSecondsInput = input;
+    }
+  }
+
   setupSettingsPanel() {
     this.settingsPanel = document.querySelector(".settingsPanel");
     this.settingsClose = document.querySelector(".settingsClose");
@@ -3248,6 +3276,8 @@ class DpsApp {
         this.safeSetSetting(this.storageKeys.hideWhenSolo, String(!!event.target?.checked));
       });
     }
+    // And while nothing is happening (the same loop).
+    this.setupIdleSettings();
     // Suspend button setting
     if (this.showSuspendBtnCheckbox) {
       const storedShow = this.safeGetSetting(this.storageKeys.showSuspendBtn) === "true";
@@ -5217,6 +5247,7 @@ class DpsApp {
       [this.autoHideMeterCheckbox, "autoHideMeter", false],
       [this.hideWhenGameClosedCheckbox, "hideWhenGameClosed", false],
       [this.hideWhenSoloCheckbox, "hideWhenSolo", false],
+      [this.hideWhenIdleCheckbox, "hideWhenIdle", true],
       [this.globalHotkeysCheckbox, "globalHotkeys", !document.documentElement?.classList?.contains?.("linux")],
       [this.saveRawPacketsCheckbox, "saveRawPackets", false],
       [document.querySelector(".discordActivityCheckbox"), "discordActivity", false],
@@ -5239,6 +5270,9 @@ class DpsApp {
 
     const limit = get("playerLimit");
     if (isSet(limit)) this.setPlayerLimit(limit);
+
+    const idleSeconds = get("idleSeconds");
+    if (isSet(idleSeconds) && this.idleSecondsInput) this.idleSecondsInput.value = idleSeconds;
 
     this.setBetaUi(true);
     this.setSlimMode(get("slimMode") === "true");
@@ -6968,12 +7002,20 @@ class DpsApp {
   // the support card) takes the mouse though the overlay is locked: locked
   // from last time, nothing on it could be clicked, and it covers the lock
   // button. The lock itself stays as it was.
+  // The panels that open inside the meter window count as well: the backend
+  // hides the whole window when nothing is happening, and a panel would go
+  // with it.
   _watchOverlayCards() {
-    const cards = [...document.querySelectorAll(".updateModal, .discordPromo, .supportModal")];
+    const cards = [...document.querySelectorAll(
+      ".updateModal, .discordPromo, .supportModal, .detailsPanel, .historyPanel, .settingsPanel"
+    )];
     if (!cards.length || typeof MutationObserver !== "function") return;
     let wasOpen = false;
     const sync = () => {
-      const open = cards.some((card) => card.classList.contains("isOpen"));
+      // The cards say "isOpen"; the panels say "open".
+      const open = cards.some(
+        (card) => card.classList.contains("isOpen") || card.classList.contains("open")
+      );
       if (open === wasOpen) return;
       wasOpen = open;
       window.javaBridge?.setOverlayCardOpen?.(open);
@@ -6981,6 +7023,22 @@ class DpsApp {
     const observer = new MutationObserver(sync);
     for (const card of cards) observer.observe(card, { attributes: true, attributeFilter: ["class"] });
     sync();
+  }
+
+  // The meter must not vanish in the middle of a drag: the backend's idle
+  // rule reads this flag.
+  _watchMeterInteraction() {
+    const meter = document.querySelector(".meter");
+    if (!meter) return;
+    meter.addEventListener("pointerdown", () => {
+      window.javaBridge?.setMeterInteracting?.(true);
+    });
+    window.addEventListener("pointerup", () => {
+      window.javaBridge?.setMeterInteracting?.(false);
+    });
+    meter.addEventListener("pointercancel", () => {
+      window.javaBridge?.setMeterInteracting?.(false);
+    });
   }
 
   _applyLockBtnVisibility(show) {

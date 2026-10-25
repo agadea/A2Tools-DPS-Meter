@@ -670,6 +670,29 @@
                       <span class="settingsToggleTrack" aria-hidden="true"></span>
                     </span>
                   </label>
+                  <label class="settingsToggle">
+                    <span class="settingsToggleLabel settingsLabel" data-i18n="settings.hideWhenIdle" title="The meter hides when nothing is happening: no damage for a while and no target being fought. It comes back with the next hit. The pin keeps it up." data-i18n-title="settings.tips.hideWhenIdle">Hide when nothing is happening</span>
+                    <span class="settingsToggleControl">
+                      <input type="checkbox" class="hideWhenIdleCheckbox" checked />
+                      <span class="settingsToggleTrack" aria-hidden="true"></span>
+                    </span>
+                  </label>
+                  <div class="settingsRow settingsRowInput">
+                    <div class="settingsInfo">
+                      <label class="settingsLabel" for="idleSecondsInput" data-i18n="settings.idleSeconds.label" title="How long the meter waits before it hides itself when nothing is happening." data-i18n-title="settings.tips.idleSeconds">Idle seconds</label>
+                    </div>
+                    <div class="settingsRowEnd">
+                      <input
+                        id="idleSecondsInput"
+                        class="idleSecondsInput"
+                        type="number"
+                        min="1"
+                        max="600"
+                        step="1"
+                        value="15"
+                        autocomplete="off" />
+                    </div>
+                  </div>
                   <div class="settingsRow settingsRowSelect">
                     <div class="settingsInfo">
                       <div class="settingsLabel" data-i18n="settings.detailsMonitor.label" title="Opens the Details window on the chosen display and keeps it there." data-i18n-title="settings.tips.detailsMonitor">Details on second monitor</div>

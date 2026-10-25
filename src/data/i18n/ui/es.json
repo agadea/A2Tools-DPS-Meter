@@ -310,6 +310,10 @@
     "autoHideMeter": "Ocultar cuando AION2 no está activo",
     "hideWhenGameClosed": "Ocultar mientras AION2 está cerrado",
     "hideWhenSolo": "Mostrar solo en grupo",
+    "hideWhenIdle": "Ocultar cuando no pasa nada",
+    "idleSeconds": {
+      "label": "Segundos de inactividad"
+    },
     "showSuspendBtn": "Mostrar botón de pausar captura",
     "showLockBtn": "Mostrar botón de bloqueo (clic a través)",
     "playerLimit": {
@@ -582,7 +586,9 @@
       "showMeter": "Desactivado: solo se ven tus plugins. El medidor sigue registrando combates y subiéndolos en segundo plano. Vuelve a mostrarlo aquí, con el atajo de mostrar/ocultar o con el botón del medidor en una ventana de plugin.",
       "clearOnZone": "Cuándo desaparece el último combate del medidor tras un cambio de zona. Todos los combates quedan en el Historial igualmente.",
       "hideWhenGameClosed": "El medidor se oculta mientras el juego no está abierto y vuelve cuando se inicia.",
-      "hideWhenSolo": "El medidor se oculta mientras no estás en un grupo y vuelve cuando te unes a uno. El atajo de mostrar/ocultar lo sigue mostrando."
+      "hideWhenSolo": "El medidor se oculta mientras no estás en un grupo y vuelve cuando te unes a uno. El atajo de mostrar/ocultar lo sigue mostrando.",
+      "hideWhenIdle": "El medidor se oculta cuando no pasa nada: un rato sin daño y sin objetivo en combate. Vuelve con el siguiente golpe. Fijado, el medidor sigue visible.",
+      "idleSeconds": "Cuánto tiempo espera el medidor antes de ocultarse cuando no pasa nada."
     },
     "globalHotkeys": "Usar atajos de teclado",
     "hotkeyConsent": {

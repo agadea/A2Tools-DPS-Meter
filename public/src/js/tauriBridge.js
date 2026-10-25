@@ -826,6 +826,11 @@
     isPinned() {
       return invoke("is_pinned").catch(() => false);
     },
+    // The player is holding the meter (a drag): the idle rule must not hide
+    // the window under the pointer.
+    setMeterInteracting(interacting) {
+      invoke("set_meter_interacting", { interacting: !!interacting }).catch(() => {});
+    },
     setHotkey(mods, vk) {
       const label = this._buildHotkeyLabel(mods, vk);
       this.setSetting("dpsMeter.hotkey", label);

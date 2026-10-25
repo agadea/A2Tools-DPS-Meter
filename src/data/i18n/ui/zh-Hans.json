@@ -315,6 +315,10 @@
     "autoHideMeter": "AION2 不在前台时隐藏",
     "hideWhenGameClosed": "AION2 关闭时隐藏",
     "hideWhenSolo": "仅在队伍中显示",
+    "hideWhenIdle": "无事时隐藏",
+    "idleSeconds": {
+      "label": "空闲秒数"
+    },
     "showSuspendBtn": "显示暂停捕获按钮",
     "showLockBtn": "显示点击穿透锁定按钮",
     "playerLimit": {
@@ -589,7 +593,9 @@
       "showMeter": "关闭：只显示插件。统计仍在后台记录战斗并上传。可在此处、用显示/隐藏快捷键，或插件窗口上的统计按钮重新显示。",
       "clearOnZone": "切换区域后，何时从统计中清除上一场战斗。所有战斗都会保留在历史记录中。",
       "hideWhenGameClosed": "游戏未运行时隐藏计量器，游戏启动后再次显示。",
-      "hideWhenSolo": "不在队伍中时隐藏计量器，加入队伍后再次显示。显示/隐藏快捷键仍可随时打开它。"
+      "hideWhenSolo": "不在队伍中时隐藏计量器，加入队伍后再次显示。显示/隐藏快捷键仍可随时打开它。",
+      "hideWhenIdle": "没有事情发生时计量器会隐藏：一段时间没有伤害，也没有正在战斗的目标。下一次命中时它会再次出现。固定后它会一直显示。",
+      "idleSeconds": "没有事情发生时，计量器在隐藏自己之前等待的秒数。"
     },
     "globalHotkeys": "使用快捷键",
     "hotkeyConsent": {
