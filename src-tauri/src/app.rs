@@ -249,36 +249,65 @@ enum MeterAction {
 /// The decision, as a pure function of the reasons now, the reasons before
 /// and whether the player wants the meter.
 ///
+/// Every reason is compared with its own previous value: a reason that
+/// starts holding hides the meter, a reason that stops holding shows it
+/// again. A hard reason (the game is closed, you are alone) suspends the
+/// idle one and takes precedence over it: the meter stays hidden while
+/// either holds.
+///
 /// The player's own Show/Hide is a layer above all of it: the loop never
-/// shows the meter when it is off, and never turns it off either. A hard
-/// reason (the game is closed, you are alone) suspends the idle one, and
-/// when it lets go the meter is shown again — and the idle window starts
-/// again from that moment, because showing the meter moves the anchor.
+/// shows the meter when it is off, and never turns it off either.
 fn hide_action(now: HideReasons, before: HideReasons, wanted: bool) -> (MeterAction, HideReasons) {
-    let hard_now = now.closed || now.solo;
-    let hard_before = before.closed || before.solo;
     let current = HideReasons {
         closed: now.closed,
         solo: now.solo,
-        idle: now.idle && !hard_now,
+        // A hard reason suspends the idle one.
+        idle: now.idle && !(now.closed || now.solo),
     };
     if !wanted {
         // The player turned the meter off: the loop leaves it alone, and the
         // reasons wait for them to turn it back on.
         return (MeterAction::Keep, before);
     }
-    let action = if hard_before && !hard_now {
-        // The game opened, or a party formed: the meter comes back, and the
-        // idle window starts again from this moment.
-        MeterAction::Show
-    } else if current.hidden() && !before.hidden() {
+    let hard_started = (current.closed && !before.closed) || (current.solo && !before.solo);
+    let hard_stopped = (before.closed && !current.closed) || (before.solo && !current.solo);
+    let idle_started = current.idle && !before.idle;
+    let idle_stopped = before.idle && !current.idle;
+    let action = if hard_started {
+        // The game closed, or a party broke up: the meter goes down, even if
+        // another reason had already hidden it.
         MeterAction::Hide
-    } else if !current.hidden() && before.hidden() {
+    } else if hard_stopped {
+        // The game opened, or a party formed: the meter comes back, and the
+        // idle window starts again from that moment.
+        MeterAction::Show
+    } else if idle_started {
+        // Nothing is happening: the meter goes down.
+        MeterAction::Hide
+    } else if idle_stopped {
+        // Something happened again: the meter comes back.
         MeterAction::Show
     } else {
         MeterAction::Keep
     };
     (action, current)
+}
+
+/// Whether the meter counts as down, as a pure function of the window's
+/// state. A minimized window is still "visible", so it is asked for
+/// separately: the Windows hide minimizes the meter, and the keybind has to
+/// bring it back from there.
+fn meter_counts_as_hidden(visible: bool, minimized: bool, hidden_in_place: bool) -> bool {
+    !visible || minimized || hidden_in_place
+}
+
+/// The same, for the meter window.
+fn meter_is_down(window: &tauri::WebviewWindow) -> bool {
+    meter_counts_as_hidden(
+        window.is_visible().unwrap_or(true),
+        window.is_minimized().unwrap_or(false),
+        platform::window::is_hidden_in_place(window),
+    )
 }
 
 /// The windows that hide with the meter when AION2 isn't in front ("Hide
@@ -1072,12 +1101,13 @@ fn hotkey_of(settings: &Settings, key: &str) -> (u32, u32) {
 
 /// Register the hotkeys from saved settings (or defaults).
 /// Show or hide the meter, and remember it (as Settings → Plugins → Show
-/// the DPS meter does): its keybind and the tray's. Hidden by auto-hide
-/// only, it is shown, as before, and nothing changes.
+/// the DPS meter does): its keybind and the tray's. Hidden by auto-hide or
+/// by one of the hide rules, it is shown, as before, and nothing changes.
+/// A minimized window counts as hidden: that is how Windows hides the meter.
 pub(crate) fn toggle_meter(app: &tauri::AppHandle) {
     if meter_wanted(app)
         && let Some(window) = app.get_webview_window("main")
-        && (!window.is_visible().unwrap_or(true) || platform::window::is_hidden_in_place(&window))
+        && meter_is_down(&window)
     {
         show_meter_again(app, &window);
         return;
@@ -3804,6 +3834,8 @@ pub fn run() {
                         // Idle is no damage for a while and no target being
                         // fought: the pin keeps the meter up, and so do an
                         // open card and a drag on the meter itself.
+                        // In between, the keybind can still bring the meter
+                        // back.
                         if tick_count % 4 == 0 {
                             let on = |key: &str| state.settings.get(key).as_deref() == Some("true");
                             let closed = on("dpsMeter.hideWhenGameClosed") && !platform::window_detector::find_aion2_window();
@@ -3835,12 +3867,21 @@ pub fn run() {
                             reasons = next;
                             match action {
                                 MeterAction::Hide => {
+                                    // A drag cannot continue while the window is
+                                    // hidden, and the mouseup that would end it
+                                    // never arrives: the flag must not outlive it.
+                                    state.interacting.store(false, std::sync::atomic::Ordering::SeqCst);
                                     if let Some(window) = handle.get_webview_window("main") {
                                         platform::window::minimize_off_top(&window);
                                     }
                                 }
                                 MeterAction::Show => {
-                                    if let Some(window) = handle.get_webview_window("main") {
+                                    // Only when the meter is really down: a show
+                                    // that changes nothing would push the idle
+                                    // window later, and the anchor moves with it.
+                                    if let Some(window) = handle.get_webview_window("main")
+                                        && meter_is_down(&window)
+                                    {
                                         show_meter_again(&handle, &window);
                                     }
                                 }
@@ -4228,6 +4269,17 @@ mod tests {
         assert_eq!(action, MeterAction::Show);
     }
 
+    /// A hard reason that starts holding hides the meter, even when another
+    /// reason already held it: the meter was idle-hidden, the game closed,
+    /// and the player wants the meter back.
+    #[test]
+    fn a_hard_reason_that_starts_hides_the_meter_whatever_held_it_before() {
+        let before = HideReasons { closed: false, solo: false, idle: true };
+        let now = HideReasons { closed: true, solo: false, idle: false };
+        let (action, _) = hide_action(now, before, true);
+        assert_eq!(action, MeterAction::Hide);
+    }
+
     /// A hard reason suspends the idle one: the game being closed hides the
     /// meter whatever else happens.
     #[test]
@@ -4273,6 +4325,16 @@ mod tests {
             false,
         );
         assert_eq!(action, MeterAction::Keep);
+    }
+
+    /// A minimized window counts as down: the Windows hide minimizes the
+    /// meter, and the keybind has to bring it back from there.
+    #[test]
+    fn a_minimized_window_counts_as_down() {
+        assert!(meter_counts_as_hidden(true, true, false), "minimized");
+        assert!(meter_counts_as_hidden(false, false, false), "not visible");
+        assert!(meter_counts_as_hidden(true, false, true), "hidden in place");
+        assert!(!meter_counts_as_hidden(true, false, false), "up and visible");
     }
 
     #[test]
