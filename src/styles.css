@@ -472,7 +472,7 @@ body.linuxOverlay .meter {
    Now an ordinary icon button in the control group: same action, named,
    discoverable, 15px. */
 .header .bossIcon {
-  order: 2;
+  order: 3;
   flex: 0 0 auto;
   position: relative;
   width: 15px;
@@ -550,7 +550,17 @@ body.linuxOverlay .meter {
   color: var(--hud-sub);
   white-space: nowrap;
 }
-.header .bossHpInline .bossHpPctInline { color: var(--hud-num); }
+/* Fixed widths: the figures must not resize the header as the percentage
+   ticks (9% -> 10%) or as the boss's HP drops, or the name beside them
+   jitters with it. The percentage's box holds the widest it gets ("100%");
+   the amounts' holds a typical "1.23m / 45.67m". They are floors: a value
+   that outgrows one grows the header, and the name is refitted to match. */
+.header .bossHpInline .bossHpPctInline {
+  color: var(--hud-num);
+  min-width: 3em;
+  text-align: right;
+}
+.header .bossHpInline .bossHpAmtInline { min-width: 8em; }
 /* No boss, no figures: the band hides itself, so these do too. */
 .header .bossHpInline[hidden] { display: none; }
 

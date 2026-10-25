@@ -363,9 +363,12 @@ class DpsApp {
     this.elBossHpBar = document.querySelector(".bossHpBar");
     this.elBossHpFill = document.querySelector(".bossHpFill");
     this.elBossHpInline = document.querySelector(".bossHpInline");
-    // No boss, no figures: the band hides itself, so these do too.
-    if (this.elBossHpInline) {
-      this.elBossHpInline.hidden = true;
+    // The figures sit next to the boss name and take its width, so the name
+    // has to be refitted whenever they appear or change width. A
+    // ResizeObserver says exactly that, without a layout read per payload.
+    if (this.elBossHpInline && typeof ResizeObserver !== "undefined") {
+      this._bossHpInlineObserver = new ResizeObserver(() => this.fitBossName());
+      this._bossHpInlineObserver.observe(this.elBossHpInline);
     }
     this.battleTimeRoot = document.querySelector(".battleTime");
     this.analysisStatusEl = document.querySelector(".analysisStatus");
@@ -5622,13 +5625,13 @@ class DpsApp {
     this.elBossHpBar.classList.toggle("isLow", pct <= 25);
     // The band is a hairline now, so the figures live in the header.
     if (this.elBossHpInline) {
-      this.elBossHpInline.hidden = false;
       const pctInline = this.elBossHpInline.querySelector(".bossHpPctInline");
       const amtInline = this.elBossHpInline.querySelector(".bossHpAmtInline");
       if (pctInline) pctInline.textContent = `${Math.round(pct)}%`;
       if (amtInline) {
         amtInline.textContent = `${this.formatAbbreviatedNumber(remaining)} / ${this.formatAbbreviatedNumber(max)}`;
       }
+      this.elBossHpInline.hidden = false;
     }
   }
 
