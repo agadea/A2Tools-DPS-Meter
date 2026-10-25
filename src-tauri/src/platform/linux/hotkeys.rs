@@ -43,6 +43,11 @@ const RELOAD: &str = "reset";
 const TOGGLE: &str = "toggle";
 const LOCK: &str = "lock";
 const PLUGINS: &str = "plugins";
+const PIN: &str = "pin";
+
+/// The ids the helper accepts: they are what the portal and Hyprland are
+/// told. A binding without one is dropped before the desktop ever sees it.
+const KNOWN_IDS: [&str; 5] = [RELOAD, TOGGLE, LOCK, PLUGINS, PIN];
 
 /// A binding's shortcut id and the description the desktop shows.
 fn shortcut_of(name: &str) -> Option<(&'static str, &'static str)> {
@@ -51,6 +56,7 @@ fn shortcut_of(name: &str) -> Option<(&'static str, &'static str)> {
         "toggle" => (TOGGLE, "Show or hide the meter"),
         "lock" => (LOCK, "Turn the click-through lock on or off"),
         "plugins" => (PLUGINS, "Bring back the open plugin windows"),
+        "pin" => (PIN, "Pin or unpin the meter"),
         _ => return None,
     })
 }
@@ -209,7 +215,7 @@ pub fn run_helper() -> i32 {
         let (Some(id), Some(description)) = (fields.next(), fields.next()) else { continue };
         let trigger = fields.next().filter(|t| !t.is_empty()).map(str::to_string);
         // Known ids only: they are what the portal and Hyprland are told.
-        let Some(id) = [RELOAD, TOGGLE, LOCK, PLUGINS].into_iter().find(|known| *known == id) else { continue };
+        let Some(id) = KNOWN_IDS.into_iter().find(|known| *known == id) else { continue };
         let description: &'static str = Box::leak(description.to_string().into_boxed_str());
         wanted.push((id, description, trigger));
     }
@@ -310,6 +316,7 @@ fn status_key(id: &str) -> Option<&'static str> {
         TOGGLE => Some("toggle"),
         LOCK => Some("lock"),
         PLUGINS => Some("plugins"),
+        PIN => Some("pin"),
         _ => None,
     }
 }
@@ -636,7 +643,18 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{hyprland_keys, trigger};
+    use super::{hyprland_keys, shortcut_of, status_key, trigger, KNOWN_IDS};
+
+    #[test]
+    fn every_binding_the_meter_registers_has_a_shortcut_the_helper_knows() {
+        // A binding without an id is dropped before the portal sees it, and
+        // the meter says nothing: the key looks bound and does nothing.
+        for name in ["reload", "toggle", "lock", "plugins", "pin"] {
+            let (id, _) = shortcut_of(name).unwrap_or_else(|| panic!("no shortcut id for {name}"));
+            assert!(KNOWN_IDS.contains(&id), "{id} is not one the helper knows");
+            assert_eq!(status_key(id), Some(name));
+        }
+    }
 
     #[test]
     fn hyprland_reads_a_trigger_as_its_modifiers_and_key() {

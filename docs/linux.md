@@ -254,7 +254,7 @@ To remove it:
 
 ## Global hotkeys
 
-From 2.0.59 the meter's three hotkeys (reset, show or hide, click-through lock) work on Linux through your desktop's global shortcuts. They are off until you turn on **Use keybinds** under **Settings → Keybinds**; turning it on registers them at once, and turning it off releases them. Wayland lets no app grab keys itself, so the meter asks the desktop for them, and the desktop has the final say on which keys they use. The meter suggests the keys set on the same tab.
+From 2.0.59 the meter's hotkeys (reset, show or hide, click-through lock, bring back the plugin windows and the pin) work on Linux through your desktop's global shortcuts. They are off until you turn on **Use keybinds** under **Settings → Keybinds**; turning it on registers them at once, and turning it off releases them. Wayland lets no app grab keys itself, so the meter asks the desktop for them, and the desktop has the final say on which keys they use. The meter suggests the keys set on the same tab.
 
 The keys are registered by a small helper, `a2tools-hotkeys`, installed next to the meter. The meter itself holds the permission to capture packets (`cap_net_raw`), and Linux will not let the desktop's shortcut service read a program holding a permission the service does not have, so the meter cannot register shortcuts itself. The helper has no such permission and only handles keybinds. They are off by default because your desktop may ask you to approve them.
 
@@ -265,12 +265,13 @@ The keys are registered by a small helper, `a2tools-hotkeys`, installed next to 
 | Hyprland | The meter binds its keys itself each time it starts, unless a key is already bound in your config. To bind them yourself instead, see below |
 | Other desktops | Works if the desktop's portal supports global shortcuts; otherwise there are no hotkeys |
 
-**Hyprland.** The meter's shortcuts are `com.a2tools.dps-meter:reset`, `:toggle` and `:lock`. `hyprctl globalshortcuts` lists them while the meter runs. The meter's own bindings last until Hyprland reloads its config, and come back when the meter starts again. To bind them in your config instead:
+**Hyprland.** The meter's shortcuts are `com.a2tools.dps-meter:reset`, `:toggle`, `:lock`, `:plugins` and `:pin`. `hyprctl globalshortcuts` lists them while the meter runs. The meter's own bindings last until Hyprland reloads its config, and come back when the meter starts again. To bind them in your config instead:
 
 ```lua
 hl.bind("CTRL + ALT + R", hl.dsp.global("com.a2tools.dps-meter:reset"))
 hl.bind("CTRL + ALT + Up", hl.dsp.global("com.a2tools.dps-meter:toggle"))
 hl.bind("CTRL + ALT + L", hl.dsp.global("com.a2tools.dps-meter:lock"))
+hl.bind("CTRL + ALT + P", hl.dsp.global("com.a2tools.dps-meter:pin"))
 ```
 
 On an older Hyprland that uses `hyprland.conf`:
@@ -279,6 +280,7 @@ On an older Hyprland that uses `hyprland.conf`:
 bind = CTRL ALT, R, global, com.a2tools.dps-meter:reset
 bind = CTRL ALT, Up, global, com.a2tools.dps-meter:toggle
 bind = CTRL ALT, L, global, com.a2tools.dps-meter:lock
+bind = CTRL ALT, P, global, com.a2tools.dps-meter:pin
 ```
 
 A key the meter finds already bound is left to your binding, so give the meter's shortcuts keys of their own.

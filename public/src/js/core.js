@@ -6986,7 +6986,9 @@ class DpsApp {
   _applyLockBtnVisibility(show) {
     if (this.lockBtn) this.lockBtn.style.display = show ? "" : "none";
     this.headerBtns?.classList.toggle("hasLockBtn", !!show);
-    if (show) requestAnimationFrame(() => this._sendOverlayButtonRects());
+    // The place is sent either way: a hidden lock button must not keep its
+    // rectangle in the click-through region, and the pin is always there.
+    requestAnimationFrame(() => this._sendOverlayButtonRects());
   }
 
   // Where the buttons that stay clickable are, so the backend keeps them

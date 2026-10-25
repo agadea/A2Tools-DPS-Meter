@@ -1102,6 +1102,11 @@ fn update_settings(
 #[cfg_attr(not(feature = "online"), allow(unused_variables))]
 fn clear_settings(app: tauri::AppHandle, state: tauri::State<'_, AppState>) {
     state.settings.clear();
+    // The pin's saved value went with the rest, so the meter is not pinned
+    // any more: the atomic follows it, or the meter would stay pinned until
+    // the next start and then silently unpin itself.
+    state.pinned.store(false, std::sync::atomic::Ordering::SeqCst);
+    let _ = app.emit("pin-changed", false);
     #[cfg(feature = "online")]
     crate::stream_overlay::sync(&app);
 }
