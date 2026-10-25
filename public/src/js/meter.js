@@ -117,6 +117,21 @@ function shareFor(row, mode, totals) {
   return ((Number(row?.totalDamage) || 0) / total) * 100;
 }
 
+// What a row's percentage says and how the row is marked by it. An empty
+// share says nothing and marks nothing. A share of zero is a real zero —
+// "0.0%" and the error class, as a player who dealt no damage already sees
+// in damage mode; that is a decision, not an oversight.
+function contributionFor(share) {
+  if (share === "" || !Number.isFinite(share)) return { text: "", className: "" };
+  let className = "";
+  if (share < 3) {
+    className = "error";
+  } else if (share < 5) {
+    className = "warning";
+  }
+  return { text: `${share.toFixed(1)}%`, className };
+}
+
 const createMeterUI = ({
   elList,
   dpsFormatter,
@@ -521,16 +536,7 @@ const createMeterUI = ({
       const metric = resolveMetric(row) || { value: 0, text: "-" };
       const metricValue = Number(metric.value) || 0;
       const share = shareFor(row, mode, totals);
-      const damageContribution = share === "" ? NaN : share;
-
-      let contributionClass = "";
-      if (Number.isFinite(damageContribution)) {
-        if (damageContribution < 3) {
-          contributionClass = "error";
-        } else if (damageContribution < 5) {
-          contributionClass = "warning";
-        }
-      }
+      const { text: contributionText, className: contributionClass } = contributionFor(share);
       if (view.prevContribClass !== contributionClass) {
         if (view.prevContribClass) {
           view.rowEl.classList.remove(view.prevContribClass);
@@ -547,7 +553,6 @@ const createMeterUI = ({
         view.lastMetricText = metricText;
       }
 
-      const contributionText = share === "" ? "" : `${share.toFixed(1)}%`;
       if (view.lastContributionText !== contributionText) {
         view.dpsContribution.textContent = contributionText;
         view.lastContributionText = contributionText;

@@ -134,52 +134,75 @@ test("without a measurable pitch nothing is trimmed", () => {
 
 // A gap of 0px is a real gap: "bar spacing" goes down to 0, and the pitch
 // must not fall back to the CSS variable's 3px.
-test("a gap of zero is a real gap", () => {
-  const ctx = meterContext();
+const pitchWith = (ctx, rowGap) => {
   ctx.getComputedStyle = () => ({
-    rowGap: "0px",
+    rowGap,
     getPropertyValue: (name) => (name === "--hud-row-h" ? "24px" : "3px"),
   });
-  const pitch = vm.runInContext(
+  return vm.runInContext(
     "rowPitchPx(list)",
     Object.assign(ctx, { list: { querySelectorAll: () => [] } })
   );
-  assert.equal(pitch, 24);
+};
+
+test("a gap of zero is a real gap", () => {
+  assert.equal(pitchWith(meterContext(), "0px"), 24);
+});
+
+test("an unreadable gap falls back to the CSS variable", () => {
+  assert.equal(pitchWith(meterContext(), "normal"), 27);
 });
 
 // The percentage beside a row's figure: the share of what the meter shows.
+// The fixture makes the metrics disagree — 50% of the damage, 20% of the
+// healing, 25% of the stagger — so a share taken from the wrong metric
+// gives a different number and the test says something.
 const shareIn = (ctx, row, mode, totals) =>
   vm.runInContext("shareFor(row, mode, totals)", Object.assign(ctx, { row, mode, totals }));
 
+const SHARE_ROW = { totalDamage: 500, healAmount: 100, stagger: 10 };
+const SHARE_TOTALS = { damage: 1000, heal: 500, stagger: 40 };
+
 test("the percentage is the share of what the meter is showing", () => {
   const ctx = meterContext();
-  const result = shareIn(
-    ctx,
-    { totalDamage: 500, healAmount: 250, stagger: 10 },
-    "hps",
-    { damage: 1000, heal: 500, stagger: 40 }
-  );
-  assert.equal(result, 50);
+  assert.equal(shareIn(ctx, SHARE_ROW, "hps", SHARE_TOTALS), 20);
+  assert.equal(shareIn(ctx, SHARE_ROW, "totalHeal", SHARE_TOTALS), 20);
 });
 
 test("the damage share is the damage", () => {
   const ctx = meterContext();
-  const result = shareIn(
-    ctx,
-    { totalDamage: 500, healAmount: 250, stagger: 10 },
-    "dps",
-    { damage: 1000, heal: 500, stagger: 40 }
-  );
-  assert.equal(result, 50);
+  assert.equal(shareIn(ctx, SHARE_ROW, "dps", SHARE_TOTALS), 50);
+  assert.equal(shareIn(ctx, SHARE_ROW, "totalDamage", SHARE_TOTALS), 50);
+});
+
+test("the stagger share is the stagger", () => {
+  const ctx = meterContext();
+  assert.equal(shareIn(ctx, SHARE_ROW, "stagger", SHARE_TOTALS), 25);
 });
 
 test("a share of nothing is empty, not zero", () => {
   const ctx = meterContext();
-  const result = shareIn(
-    ctx,
-    { totalDamage: 500, healAmount: 0, stagger: 10 },
-    "totalHeal",
-    { damage: 1000, heal: 0, stagger: 40 }
-  );
-  assert.equal(result, "");
+  assert.equal(shareIn(ctx, SHARE_ROW, "totalHeal", { ...SHARE_TOTALS, heal: 0 }), "");
+  assert.equal(shareIn(ctx, SHARE_ROW, "stagger", { ...SHARE_TOTALS, stagger: 0 }), "");
+  assert.equal(shareIn(ctx, SHARE_ROW, "dps", { ...SHARE_TOTALS, damage: 0 }), "");
 });
+
+// What the row's percentage says, and how the row is marked by it.
+const contributionIn = (ctx, share) => {
+  const result = vm.runInContext("contributionFor(share)", Object.assign(ctx, { share }));
+  return { text: result.text, className: result.className };
+};
+
+test("an empty share says nothing and marks nothing", () => {
+  assert.deepEqual(contributionIn(meterContext(), ""), { text: "", className: "" });
+});
+
+test("a share of zero is a real zero", () => {
+  assert.deepEqual(contributionIn(meterContext(), 0), { text: "0.0%", className: "error" });
+});
+
+test("a small share is marked, a large one is not", () => {
+  assert.deepEqual(contributionIn(meterContext(), 4), { text: "4.0%", className: "warning" });
+  assert.deepEqual(contributionIn(meterContext(), 50), { text: "50.0%", className: "" });
+});
+
