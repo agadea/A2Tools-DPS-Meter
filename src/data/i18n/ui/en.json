@@ -50,7 +50,8 @@
     "screenshot": {
       "ariaLabel": "Save screenshot to clipboard",
       "captured": "Captured Screenshot",
-      "savedToClipboard": "Saved to clipboard"
+      "savedToClipboard": "Saved to clipboard",
+      "failed": "Screenshot failed"
     },
     "sort": {
       "recent": "Recent",
@@ -728,7 +729,8 @@
     "later": "Update Later",
     "text": "A new update is available!\n\nCurrent version: {current}\nLatest version: {latest}",
     "installing": "Installing update...",
-    "downloadError": "Download failed. Please try again or install manually."
+    "downloadError": "Download failed. Please try again or install manually.",
+    "cancel": "Cancel"
   },
   "connection": {
     "auto": "Auto",

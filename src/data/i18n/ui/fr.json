@@ -21,6 +21,11 @@
     }
   },
   "details": {
+    "hoverTooltip": {
+      "loading": "Chargement...",
+      "empty": "Aucune donnée de compétence pour ce combat",
+      "error": "Impossible de charger les compétences"
+    },
     "header": "Détails",
     "title": "Détails de {name}",
     "tooltip": "Les dégâts sur la durée ne sont pas comptés dans les taux globaux de critique, double, parfait, attaque dans le dos ou parade.",
@@ -45,7 +50,8 @@
     "screenshot": {
       "ariaLabel": "Copier la capture dans le presse-papiers",
       "captured": "Capture effectuée",
-      "savedToClipboard": "Copiée dans le presse-papiers"
+      "savedToClipboard": "Copiée dans le presse-papiers",
+      "failed": "Échec de la capture"
     },
     "sort": {
       "recent": "Récent",
@@ -253,6 +259,11 @@
     "previewUploadTip": "Écrit ce que le partage de ce combat enverrait. Rien n'est envoyé.",
     "previewWorking": "Création de l'aperçu…",
     "previewDone": "{slice} Ko écrits ({sent} Ko compressés — ce qu'un envoi transmettrait). {kept} paquets conservés sur {seen}, {blinded} noms masqués. Rien n'a été envoyé. Enregistré dans {dir}",
+    "uploadTip": "Envoyez ce combat sur a2tools.app et obtenez un lien de partage",
+    "uploadOpen": "Ouvrez le journal de ce combat sur a2tools.app",
+    "uploadWorking": "Envoi…",
+    "uploadDonePublic": "Envoyé. Lien copié : {url}",
+    "uploadDonePrivate": "Envoyé en privé. Lien copié : {url}",
     "openWorld": "Monde ouvert"
   },
   "settings": {
@@ -534,7 +545,9 @@
       "codeHint": "La page devrait déjà être ouverte. Le code expire dans 10 minutes.",
       "working": "En attente de validation…",
       "failed": "Échec de la connexion : {error}",
-      "supporter": "Soutien"
+      "supporter": "Soutien",
+      "autoUpload": "Envoyer automatiquement les combats de boss",
+      "autoUploadHint": "Lorsqu'un combat de boss se termine, il est envoyé sur votre compte avec la visibilité choisie sur a2tools.app. Les noms des autres joueurs restent masqués et les mannequins d'entraînement ne sont jamais envoyés."
     },
     "sendLogs": {
       "hint": "Envoie ton journal de débogage et tes derniers journaux de paquets (3 fichiers en tout) au développeur, pour un rapport de bug.",
@@ -716,7 +729,8 @@
     "later": "Plus tard",
     "text": "Une nouvelle mise à jour est disponible !\n\nVersion actuelle : {current}\nDernière version : {latest}",
     "installing": "Installation de la mise à jour...",
-    "downloadError": "Échec du téléchargement. Réessayez ou installez manuellement."
+    "downloadError": "Échec du téléchargement. Réessayez ou installez manuellement.",
+    "cancel": "Annuler"
   },
   "connection": {
     "auto": "Auto",

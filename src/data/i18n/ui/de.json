@@ -21,6 +21,11 @@
     }
   },
   "details": {
+    "hoverTooltip": {
+      "loading": "Lädt...",
+      "empty": "Keine Skill-Daten für diesen Kampf",
+      "error": "Skills konnten nicht geladen werden"
+    },
     "header": "Details",
     "title": "Details zu {name}",
     "tooltip": "Schaden über Zeit wird in den Gesamtquoten für Kritisch, Doppelt, Perfekt, Rückenangriff und Parade nicht mitgezählt.",
@@ -45,7 +50,8 @@
     "screenshot": {
       "ariaLabel": "Screenshot in die Zwischenablage",
       "captured": "Screenshot aufgenommen",
-      "savedToClipboard": "In Zwischenablage gespeichert"
+      "savedToClipboard": "In Zwischenablage gespeichert",
+      "failed": "Screenshot fehlgeschlagen"
     },
     "sort": {
       "recent": "Zuletzt",
@@ -253,6 +259,11 @@
     "previewUploadTip": "Schreibt, was das Teilen dieses Kampfes hochladen würde. Es wird nichts gesendet.",
     "previewWorking": "Vorschau wird erstellt…",
     "previewDone": "{slice} KB geschrieben ({sent} KB komprimiert — so viel würde ein Upload senden). {kept} von {seen} Paketen behalten, {blinded} Namen unkenntlich gemacht. Es wurde nichts hochgeladen. Gespeichert unter {dir}",
+    "uploadTip": "Lade diesen Kampf auf a2tools.app hoch und erhalte einen Link zum Teilen",
+    "uploadOpen": "Öffne die Logs dieses Kampfes auf a2tools.app",
+    "uploadWorking": "Wird hochgeladen…",
+    "uploadDonePublic": "Hochgeladen. Link kopiert: {url}",
+    "uploadDonePrivate": "Privat hochgeladen. Link kopiert: {url}",
     "openWorld": "Offene Welt"
   },
   "settings": {
@@ -534,7 +545,9 @@
       "codeHint": "Die Seite sollte sich bereits geöffnet haben. Der Code läuft in 10 Minuten ab.",
       "working": "Warte auf Bestätigung…",
       "failed": "Anmeldung fehlgeschlagen: {error}",
-      "supporter": "Unterstützer"
+      "supporter": "Unterstützer",
+      "autoUpload": "Bosskämpfe automatisch hochladen",
+      "autoUploadHint": "Wenn ein Bosskampf endet, wird er mit der auf a2tools.app gewählten Sichtbarkeit in dein Konto hochgeladen. Die Namen anderer Spieler bleiben verborgen, Trainingspuppen werden nie hochgeladen."
     },
     "sendLogs": {
       "hint": "Sendet dein Debug-Log und deine neuesten Paket-Logs (insgesamt 3 Dateien) für einen Fehlerbericht an den Entwickler.",
@@ -716,7 +729,8 @@
     "later": "Später aktualisieren",
     "text": "Ein neues Update ist verfügbar!\n\nAktuelle Version: {current}\nNeueste Version: {latest}",
     "installing": "Update wird installiert...",
-    "downloadError": "Download fehlgeschlagen. Bitte erneut versuchen oder manuell installieren."
+    "downloadError": "Download fehlgeschlagen. Bitte erneut versuchen oder manuell installieren.",
+    "cancel": "Abbrechen"
   },
   "connection": {
     "auto": "Auto",

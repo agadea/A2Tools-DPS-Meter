@@ -21,6 +21,11 @@
     }
   },
   "details": {
+    "hoverTooltip": {
+      "loading": "Cargando...",
+      "empty": "No hay datos de habilidades para este combate",
+      "error": "No se pudieron cargar las habilidades"
+    },
     "header": "Detalles",
     "title": "Detalles de {name}",
     "tooltip": "El daño por tiempo no se incluye en los porcentajes totales de crítico, doble, perfecto, ataque por la espalda ni parada.",
@@ -45,7 +50,8 @@
     "screenshot": {
       "ariaLabel": "Copiar captura al portapapeles",
       "captured": "Captura realizada",
-      "savedToClipboard": "Copiada al portapapeles"
+      "savedToClipboard": "Copiada al portapapeles",
+      "failed": "Error en la captura"
     },
     "sort": {
       "recent": "Reciente",
@@ -253,6 +259,11 @@
     "previewUploadTip": "Escribe lo que se enviaría al compartir este combate. No se envía nada.",
     "previewWorking": "Creando la vista previa…",
     "previewDone": "{slice} KB escritos ({sent} KB comprimidos — lo que enviaría una subida). Se conservaron {kept} de {seen} paquetes y se ocultaron {blinded} nombres. No se subió nada. Guardado en {dir}",
+    "uploadTip": "Envía este combate a a2tools.app y obtén un enlace para compartir",
+    "uploadOpen": "Abre el registro de este combate en a2tools.app",
+    "uploadWorking": "Enviando…",
+    "uploadDonePublic": "Enviado. Enlace copiado: {url}",
+    "uploadDonePrivate": "Enviado como privado. Enlace copiado: {url}",
     "openWorld": "Mundo abierto"
   },
   "settings": {
@@ -534,7 +545,9 @@
       "codeHint": "La página ya debería haberse abierto. El código caduca en 10 minutos.",
       "working": "Esperando aprobación…",
       "failed": "Error al iniciar sesión: {error}",
-      "supporter": "Mecenas"
+      "supporter": "Mecenas",
+      "autoUpload": "Subir automáticamente los combates de jefe",
+      "autoUploadHint": "Cuando termina un combate de jefe, se sube a tu cuenta con la visibilidad que elegiste en a2tools.app. Los nombres de otros jugadores se ocultan y los muñecos de entrenamiento nunca se suben."
     },
     "sendLogs": {
       "hint": "Envía tu registro de depuración y tus registros de paquetes más recientes (3 archivos en total) al desarrollador, para un informe de errores.",
@@ -716,7 +729,8 @@
     "later": "Actualizar más tarde",
     "text": "¡Hay una nueva actualización disponible!\n\nVersión actual: {current}\nÚltima versión: {latest}",
     "installing": "Instalando la actualización...",
-    "downloadError": "Error en la descarga. Inténtalo de nuevo o instala manualmente."
+    "downloadError": "Error en la descarga. Inténtalo de nuevo o instala manualmente.",
+    "cancel": "Cancelar"
   },
   "connection": {
     "auto": "Auto",

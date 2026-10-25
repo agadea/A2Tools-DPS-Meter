@@ -21,6 +21,11 @@
     }
   },
   "details": {
+    "hoverTooltip": {
+      "loading": "読み込み中...",
+      "empty": "この戦闘にスキルデータがありません",
+      "error": "スキルを読み込めませんでした"
+    },
     "header": "詳細",
     "title": "{name} の詳細",
     "tooltip": "継続ダメージは、クリティカル・ダブル・パーフェクト・バックアタック・パリィの合計率には含まれません。",
@@ -45,7 +50,8 @@
     "screenshot": {
       "ariaLabel": "スクリーンショットをクリップボードにコピー",
       "captured": "スクリーンショットを撮影しました",
-      "savedToClipboard": "クリップボードにコピーしました"
+      "savedToClipboard": "クリップボードにコピーしました",
+      "failed": "スクリーンショットに失敗しました"
     },
     "sort": {
       "recent": "最近",
@@ -253,6 +259,11 @@
     "previewUploadTip": "この戦闘を共有した場合に送信される内容を書き出します。送信はされません。",
     "previewWorking": "プレビューを作成中…",
     "previewDone": "{slice} KB を書き出しました（圧縮後 {sent} KB — 実際に送信されるサイズ）。{seen} 個中 {kept} 個のパケットを保持し、{blinded} 件の名前を伏せました。何もアップロードされていません。保存先: {dir}",
+    "uploadTip": "この戦闘を a2tools.app にアップロードして共有リンクを取得",
+    "uploadOpen": "a2tools.app でこの戦闘の記録を開く",
+    "uploadWorking": "アップロード中…",
+    "uploadDonePublic": "アップロードしました。リンクをコピーしました：{url}",
+    "uploadDonePrivate": "非公開でアップロードしました。リンクをコピーしました：{url}",
     "openWorld": "フィールド"
   },
   "settings": {
@@ -534,7 +545,9 @@
       "codeHint": "ページはすでに開いているはずです。コードは10分で期限切れになります。",
       "working": "承認を待っています…",
       "failed": "サインインに失敗しました: {error}",
-      "supporter": "サポーター"
+      "supporter": "サポーター",
+      "autoUpload": "ボス戦を自動アップロード",
+      "autoUploadHint": "ボス戦が終わると、a2tools.app で選んだ公開設定のままアカウントにアップロードされます。他のプレイヤーの名前は伏せられ、カカシとの戦闘はアップロードされません。"
     },
     "sendLogs": {
       "hint": "デバッグログと最新のパケットログ（合計3ファイル）を、不具合報告として開発者に送信します。",
@@ -716,7 +729,8 @@
     "later": "後で更新",
     "text": "新しいアップデートがあります！\n\n現在のバージョン: {current}\n最新バージョン: {latest}",
     "installing": "アップデートをインストール中...",
-    "downloadError": "ダウンロードに失敗しました。もう一度試すか、手動でインストールしてください。"
+    "downloadError": "ダウンロードに失敗しました。もう一度試すか、手動でインストールしてください。",
+    "cancel": "キャンセル"
   },
   "connection": {
     "auto": "自動",

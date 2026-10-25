@@ -21,6 +21,11 @@
     }
   },
   "details": {
+    "hoverTooltip": {
+      "loading": "Carregando...",
+      "empty": "Sem dados de habilidade para este combate",
+      "error": "Não foi possível carregar as habilidades"
+    },
     "header": "Detalhes",
     "title": "Detalhes de {name}",
     "tooltip": "O dano ao longo do tempo não entra nas taxas totais de crítico, duplo, perfeito, ataque pelas costas ou aparar.",
@@ -45,7 +50,8 @@
     "screenshot": {
       "ariaLabel": "Copiar captura para a área de transferência",
       "captured": "Captura feita",
-      "savedToClipboard": "Copiada para a área de transferência"
+      "savedToClipboard": "Copiada para a área de transferência",
+      "failed": "Falha na captura"
     },
     "sort": {
       "recent": "Recente",
@@ -253,6 +259,11 @@
     "previewUploadTip": "Escreve o que o compartilhamento deste combate enviaria. Nada é enviado.",
     "previewWorking": "Criando a pré-visualização…",
     "previewDone": "{slice} KB gravados ({sent} KB compactados — o que um envio transmitiria). {kept} de {seen} pacotes mantidos, {blinded} nomes ocultados. Nada foi enviado. Salvo em {dir}",
+    "uploadTip": "Envie este combate para o a2tools.app e obtenha um link para compartilhar",
+    "uploadOpen": "Abra o registro deste combate no a2tools.app",
+    "uploadWorking": "Enviando…",
+    "uploadDonePublic": "Enviado. Link copiado: {url}",
+    "uploadDonePrivate": "Enviado como privado. Link copiado: {url}",
     "openWorld": "Mundo aberto"
   },
   "settings": {
@@ -534,7 +545,9 @@
       "codeHint": "A página já deve ter aberto. O código expira em 10 minutos.",
       "working": "Aguardando aprovação…",
       "failed": "Falha ao entrar: {error}",
-      "supporter": "Apoiador"
+      "supporter": "Apoiador",
+      "autoUpload": "Enviar automaticamente os combates de chefe",
+      "autoUploadHint": "Quando um combate de chefe termina, ele é enviado para a sua conta com a visibilidade que você escolheu no a2tools.app. Os nomes de outros jogadores ficam ocultos e bonecos de treino nunca são enviados."
     },
     "sendLogs": {
       "hint": "Envia seu log de depuração e seus logs de pacotes mais recentes (3 arquivos no total) ao desenvolvedor, para um relatório de bug.",
@@ -716,7 +729,8 @@
     "later": "Atualizar depois",
     "text": "Uma nova atualização está disponível!\n\nVersão atual: {current}\nÚltima versão: {latest}",
     "installing": "Instalando a atualização...",
-    "downloadError": "Falha no download. Tente novamente ou instale manualmente."
+    "downloadError": "Falha no download. Tente novamente ou instale manualmente.",
+    "cancel": "Cancelar"
   },
   "connection": {
     "auto": "Auto",

@@ -5,6 +5,54 @@ import vm from "node:vm";
 
 const source = readFileSync(new URL("../public/src/js/i18n.js", import.meta.url), "utf8");
 
+const locales = ["en", "de", "es", "fr", "ja", "ko", "pt", "ru", "zh-Hans", "zh-Hant"];
+const uiFile = (locale) => new URL(`../src/data/i18n/ui/${locale}.json`, import.meta.url);
+const readUi = (locale) => JSON.parse(readFileSync(uiFile(locale), "utf8"));
+
+// The keys the minimal HUD added. Every locale must carry them, and the
+// English file must say what the markup says before the dictionary loads.
+const hudKeys = [
+  "meter.pin",
+  "settings.keybind.pin",
+  "settings.hideWhenIdle",
+  "settings.tips.hideWhenIdle",
+  "settings.idleSeconds.label",
+  "settings.tips.idleSeconds",
+];
+
+const resolveKey = (object, key) => key.split(".").reduce((node, part) => node?.[part], object);
+
+test("every locale carries the keys the minimal HUD added", () => {
+  for (const locale of locales) {
+    const strings = readUi(locale);
+    for (const key of hudKeys) {
+      const value = resolveKey(strings, key);
+      assert.equal(typeof value, "string", `${locale}.json is missing ${key}`);
+      assert.notEqual(value.trim(), "", `${locale}.json has an empty ${key}`);
+    }
+  }
+});
+
+test("the English dictionary matches the markup's fallback text", () => {
+  const markup = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const english = readUi("en");
+  for (const key of hudKeys) {
+    const expected = resolveKey(english, key);
+    // The element carrying the key, and the attribute its fallback lives in.
+    const tag = new RegExp(`<[^>]*data-i18n(?:-([a-z-]+))?="${key.replace(/\./g, "\\.")}"[^>]*>`).exec(markup);
+    assert.ok(tag, `index.html has no element for ${key}`);
+    let fallback;
+    if (tag[1]) {
+      // The attribute's own name, not the data-i18n- prefixed one.
+      fallback = new RegExp(`\\s${tag[1]}="([^"]*)"`).exec(tag[0])?.[1];
+    } else {
+      const rest = markup.slice(tag.index + tag[0].length);
+      fallback = rest.slice(0, rest.indexOf("<")).trim();
+    }
+    assert.equal(fallback?.trim(), expected.trim(), `index.html's fallback for ${key} differs from en.json`);
+  }
+});
+
 test("built UI resources support language switching and English dungeon fallback", async () => {
   const window = {};
   const document = {

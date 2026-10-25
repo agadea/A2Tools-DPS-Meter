@@ -21,6 +21,11 @@
     }
   },
   "details": {
+    "hoverTooltip": {
+      "loading": "加载中...",
+      "empty": "本场战斗没有技能数据",
+      "error": "无法加载技能"
+    },
     "header": "详情",
     "title": "{name} 详情",
     "tooltip": "持续伤害（DOT）不计入总暴击、双重、完美、背击或格挡比例。",
@@ -45,7 +50,8 @@
     "screenshot": {
       "ariaLabel": "将截图保存到剪贴板",
       "captured": "已捕获截图",
-      "savedToClipboard": "已保存到剪贴板"
+      "savedToClipboard": "已保存到剪贴板",
+      "failed": "截图失败"
     },
     "sort": {
       "recent": "最近",
@@ -723,7 +729,8 @@
     "later": "稍后更新",
     "text": "有新更新可用！\n\n当前版本：{current}\n最新版本：{latest}",
     "installing": "正在安装更新...",
-    "downloadError": "下载失败。请重试或手动安装。"
+    "downloadError": "下载失败。请重试或手动安装。",
+    "cancel": "取消"
   },
   "connection": {
     "auto": "自动",

@@ -21,6 +21,11 @@
     }
   },
   "details": {
+    "hoverTooltip": {
+      "loading": "載入中...",
+      "empty": "本場戰鬥沒有技能資料",
+      "error": "無法載入技能"
+    },
     "header": "詳細",
     "title": "{name} 詳細",
     "tooltip": "持續傷害（DOT）不包含在總暴擊、雙重、完美、背擊或格擋比率中。",
@@ -45,7 +50,8 @@
     "screenshot": {
       "ariaLabel": "將截圖儲存到剪貼簿",
       "captured": "已擷取截圖",
-      "savedToClipboard": "已儲存到剪貼簿"
+      "savedToClipboard": "已儲存到剪貼簿",
+      "failed": "擷取截圖失敗"
     },
     "sort": {
       "recent": "最近",
@@ -594,7 +600,7 @@
       "clearOnZone": "切換區域後，何時從統計中清除上一場戰鬥。所有戰鬥都會保留在歷史紀錄中。",
       "hideWhenGameClosed": "遊戲未執行時隱藏計量器，遊戲啟動後再次顯示。",
       "hideWhenSolo": "不在隊伍中時隱藏計量器，加入隊伍後再次顯示。顯示/隱藏快捷鍵仍可隨時開啟它。",
-      "hideWhenIdle": "沒有事情發生時計量器會隱藏：一段時間沒有傷害，也沒有正在戰鬥的目標。下一次命中時它會再次出現。釘選後它會一直顯示。",
+      "hideWhenIdle": "沒有事情發生時計量器會隱藏：一段時間沒有傷害，也沒有正在戰鬥的目標。下一次命中時它會再次出現。固定後它會一直顯示。",
       "idleSeconds": "沒有事情發生時，計量器在隱藏自己之前等待的秒數。"
     },
     "globalHotkeys": "使用快捷鍵",
@@ -723,7 +729,8 @@
     "later": "稍後更新",
     "text": "有新更新可用！\n\n目前版本：{current}\n最新版本：{latest}",
     "installing": "正在安裝更新...",
-    "downloadError": "下載失敗。請重試或手動安裝。"
+    "downloadError": "下載失敗。請重試或手動安裝。",
+    "cancel": "取消"
   },
   "connection": {
     "auto": "自動",
