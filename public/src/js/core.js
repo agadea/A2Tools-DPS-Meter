@@ -405,6 +405,9 @@ class DpsApp {
       dpsFormatter: this.dpsFormatter,
       getUserName: () => this.USER_NAME,
       getMetric: (row) => this.getMetricForRow(row),
+      // The row's percentage is the share of what the meter is showing, so
+      // the mode decides which total it is a share of.
+      getDisplayMode: () => this.displayMode || "dps",
       getSortDirection: () => this.listSortDirection,
       getPinUserToTop: () => this.pinMeToTop,
       getPlayerLimit: () => this.playerLimit,

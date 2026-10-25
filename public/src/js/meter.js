@@ -72,7 +72,12 @@ function pickDisplayRows(sortedAll, { limit = 6, expanded = false, pinUserToTop 
 function rowPitchPx(elList) {
   try {
     const style = getComputedStyle(elList);
-    const gap = parseFloat(style.rowGap) || parseFloat(style.getPropertyValue("--hud-gap")) || 0;
+    // A gap of 0px is a real gap ("bar spacing" goes down to 0), so only fall
+    // back to the CSS variable when the computed value cannot be read.
+    const computedGap = parseFloat(style.rowGap);
+    const gap = Number.isFinite(computedGap)
+      ? computedGap
+      : parseFloat(style.getPropertyValue("--hud-gap")) || 0;
     const drawn = Array.from(elList.querySelectorAll(".item")).find((el) => el.offsetHeight > 0);
     const height = drawn?.offsetHeight || parseFloat(style.getPropertyValue("--hud-row-h"));
     if (Number.isFinite(height) && height > 0) return height + gap;
@@ -92,6 +97,26 @@ function pickRowCount(rows, room, pitch, drawnCount) {
   return Math.min(total, Math.max(3, drawnCount + roomRows));
 }
 
+// The row's percentage: how much of what the meter is showing, this player
+// did. In HEAL mode that is the healing, not the damage — a healer beside
+// "0%" was saying nothing. A share of nothing is empty, not "0.0%".
+function shareFor(row, mode, totals) {
+  const t = totals || {};
+  if (mode === "hps" || mode === "totalHeal") {
+    const total = Number(t.heal) || 0;
+    if (total <= 0) return "";
+    return ((Number(row?.healAmount) || 0) / total) * 100;
+  }
+  if (mode === "stagger") {
+    const total = Number(t.stagger) || 0;
+    if (total <= 0) return "";
+    return ((Number(row?.stagger) || 0) / total) * 100;
+  }
+  const total = Number(t.damage) || 0;
+  if (total <= 0) return "";
+  return ((Number(row?.totalDamage) || 0) / total) * 100;
+}
+
 const createMeterUI = ({
   elList,
   dpsFormatter,
@@ -100,6 +125,7 @@ const createMeterUI = ({
   onHoverUserRow,
   onLeaveUserRow,
   getMetric,
+  getDisplayMode = () => "dps",
   getSortDirection,
   getPinUserToTop,
   getPlayerLimit,
@@ -351,6 +377,10 @@ const createMeterUI = ({
       if (metricValue > topMetric) topMetric = metricValue;
     }
     const visibleTotalDamage = rows.reduce((sum, row) => sum + (Number(row?.totalDamage) || 0), 0);
+    const visibleTotalHeal = rows.reduce((sum, row) => sum + (Number(row?.healAmount) || 0), 0);
+    const visibleTotalStagger = rows.reduce((sum, row) => sum + (Number(row?.stagger) || 0), 0);
+    const totals = { damage: visibleTotalDamage, heal: visibleTotalHeal, stagger: visibleTotalStagger };
+    const mode = getDisplayMode();
 
     // Build order key to detect if DOM reordering is needed
     let orderKey = "";
@@ -490,14 +520,16 @@ const createMeterUI = ({
 
       const metric = resolveMetric(row) || { value: 0, text: "-" };
       const metricValue = Number(metric.value) || 0;
-      const damageContribution =
-        visibleTotalDamage > 0 ? (Number(row.totalDamage) / visibleTotalDamage) * 100 : 0;
+      const share = shareFor(row, mode, totals);
+      const damageContribution = share === "" ? NaN : share;
 
       let contributionClass = "";
-      if (damageContribution < 3) {
-        contributionClass = "error";
-      } else if (damageContribution < 5) {
-        contributionClass = "warning";
+      if (Number.isFinite(damageContribution)) {
+        if (damageContribution < 3) {
+          contributionClass = "error";
+        } else if (damageContribution < 5) {
+          contributionClass = "warning";
+        }
       }
       if (view.prevContribClass !== contributionClass) {
         if (view.prevContribClass) {
@@ -515,7 +547,7 @@ const createMeterUI = ({
         view.lastMetricText = metricText;
       }
 
-      const contributionText = `${damageContribution.toFixed(1)}%`;
+      const contributionText = share === "" ? "" : `${share.toFixed(1)}%`;
       if (view.lastContributionText !== contributionText) {
         view.dpsContribution.textContent = contributionText;
         view.lastContributionText = contributionText;

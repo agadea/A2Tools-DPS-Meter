@@ -131,3 +131,55 @@ test("without a measurable pitch nothing is trimmed", () => {
   const rows = [1, 2, 3, 4, 5, 6, 7, 8];
   assert.equal(countIn(ctx, rows, 0, 0, 0), 8);
 });
+
+// A gap of 0px is a real gap: "bar spacing" goes down to 0, and the pitch
+// must not fall back to the CSS variable's 3px.
+test("a gap of zero is a real gap", () => {
+  const ctx = meterContext();
+  ctx.getComputedStyle = () => ({
+    rowGap: "0px",
+    getPropertyValue: (name) => (name === "--hud-row-h" ? "24px" : "3px"),
+  });
+  const pitch = vm.runInContext(
+    "rowPitchPx(list)",
+    Object.assign(ctx, { list: { querySelectorAll: () => [] } })
+  );
+  assert.equal(pitch, 24);
+});
+
+// The percentage beside a row's figure: the share of what the meter shows.
+const shareIn = (ctx, row, mode, totals) =>
+  vm.runInContext("shareFor(row, mode, totals)", Object.assign(ctx, { row, mode, totals }));
+
+test("the percentage is the share of what the meter is showing", () => {
+  const ctx = meterContext();
+  const result = shareIn(
+    ctx,
+    { totalDamage: 500, healAmount: 250, stagger: 10 },
+    "hps",
+    { damage: 1000, heal: 500, stagger: 40 }
+  );
+  assert.equal(result, 50);
+});
+
+test("the damage share is the damage", () => {
+  const ctx = meterContext();
+  const result = shareIn(
+    ctx,
+    { totalDamage: 500, healAmount: 250, stagger: 10 },
+    "dps",
+    { damage: 1000, heal: 500, stagger: 40 }
+  );
+  assert.equal(result, 50);
+});
+
+test("a share of nothing is empty, not zero", () => {
+  const ctx = meterContext();
+  const result = shareIn(
+    ctx,
+    { totalDamage: 500, healAmount: 0, stagger: 10 },
+    "totalHeal",
+    { damage: 1000, heal: 0, stagger: 40 }
+  );
+  assert.equal(result, "");
+});
