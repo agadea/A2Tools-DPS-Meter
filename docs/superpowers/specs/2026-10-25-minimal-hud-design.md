@@ -38,6 +38,7 @@ The meter keeps its structure but sheds weight:
 | Header | boss icon, name, 6 buttons, full-bleed HP band with text | one line: boss icon, target name, HP %, buttons |
 | Boss HP | full-bleed band, text over it | 3 px hairline under the header; the % sits in the header |
 | Bar | gradient tint + lit edge, 80 % opacity | flat tint, no lit edge, one accent colour on your own row |
+| Rows shown | the whole party, up to "Max players shown" (6) | the top three; the rest on hover |
 | Row content | rank, class icon, name, badges, combat power, DPS, contribution % | rank, name, DPS — the rest on hover |
 
 Themes stay (they are palettes, not noise). Bar textures stay available and
@@ -52,7 +53,36 @@ not an escape hatch.
 
 The same rule applies to the footer's buttons.
 
-### 3. Accessory data on hover
+### 3. Hovering expands the meter
+
+Hovering the meter expands it: the accessory data appears (section 4) and
+the rest of the party appears below the first three rows. With the pin on,
+the expanded meter stays expanded.
+
+**Compact: the top three rows.** The meter shows three rows while it is not
+hovered, so it covers as little of the game as possible. Your own row is
+always among them: if your damage puts you outside the top three, your row
+takes the third place, and the third-ranked player is the one that falls off
+the list. (The OBS overlay already does exactly this — `capRows` in
+`stream_overlay/page.html`.)
+
+**Expanded: the whole party, up to "Max players shown".** That setting
+(default 6) keeps its meaning: how many rows the meter shows when it is
+fully expanded. The dropdown is unchanged.
+
+**The expansion is trimmed to the room below.** The overlay grows from its
+top-left corner, and a window that grows past the bottom of the screen is
+moved back by the window manager on Linux (KWin), which puts the row under
+the cursor out from under it and starts the flicker loop of issue #11. The
+page already knows the space to the right and below the window
+(`spaceRightBelow` in `tauriBridge.js`); the expansion shows as many of the
+remaining rows as fit in it. When there is no room, the meter stays at three
+rows.
+
+The Details panel is unaffected: it always shows the whole party with the
+skill breakdown, which is where the detail belongs.
+
+### 4. Accessory data on hover
 
 Per row, the class icon, the supporter and A2Tools badges, the combat power
 figure and the contribution percentage are hidden by default. Hovering the
@@ -62,15 +92,15 @@ space, so the DPS number stays where it was.
 
 With the pin on, they are always shown — the current look.
 
-### 4. The pin
+### 5. The pin
 
 One pin, for the whole meter, toggled two ways:
 
 - a 📌 button in the header,
 - a hotkey (`Ctrl+Alt+P` by default, new `dpsMeter.pinHotkey`).
 
-Pinned means: the accessory data is always visible **and** the meter never
-auto-hides.
+Pinned means: the meter stays expanded (section 3), the accessory data is
+always visible (section 4), and the meter never auto-hides (section 7).
 
 The pin button has to stay clickable while the overlay is locked
 (click-through), where the window ignores the mouse entirely. Today the
@@ -81,7 +111,7 @@ button is clickable too.
 When the overlay is locked there is no hover, so the pin is the only way to
 see the extra data. That is the point of the pin.
 
-### 5. The percentage follows the metric
+### 6. The percentage follows the metric
 
 The row's percentage is not always the damage share. It says how much of
 what the meter is currently showing, that player did:
@@ -108,7 +138,7 @@ The denominator is the visible rows, as it is for damage today: with "max
 players shown" set below the party size, the shares are of the visible rows,
 not of the whole party.
 
-### 6. Hiding when idle
+### 7. Hiding when idle
 
 Combination of both signals the user chose:
 
@@ -139,7 +169,9 @@ Already in the backend, no new plumbing:
 Already in the frontend:
 
 - the target label, the HP %, the rows (`meter.js` builds them),
-- `updateOverlaySize()` — the window is sized to its content.
+- `updateOverlaySize()` — the window is sized to its content,
+- `spaceRightBelow()` — the screen space to the right and below the window,
+  which trims the expansion.
 
 New:
 
@@ -173,8 +205,8 @@ New:
 | `src/styles.css` | the compact look, the hover reveals, the hairline HP |
 | `index.html` | the pin button, the HP % in the header |
 | `public/src/js/core.js` | the pin state, the hover state, the idle check, the settings wiring |
-| `public/src/js/meter.js` | the accessory elements' reveal state, the percentage by metric |
-| `public/src/js/tauriBridge.js` | the `pin-changed` listener, the clickable-rect list, the keybind row |
+| `public/src/js/meter.js` | the accessory elements' reveal state, the percentage by metric, the top-three selection |
+| `public/src/js/tauriBridge.js` | the `pin-changed` listener, the clickable-rect list, the keybind row, the room below the window |
 | `src-tauri/src/app.rs` | the pin hotkey and state, the idle condition, the rect list |
 | `src/data/i18n/ui/*.json` | the new strings (10 languages) |
 | `tests/hud-visibility.test.mjs` | the new test |
@@ -189,6 +221,8 @@ functions, tested in the style of `tests/meter-rows.test.mjs` (node --test,
   when pinned or a panel is open;
 - the accessory data is hidden by default, shown on hover, always shown when
   pinned;
+- the top three: the three best rows, and your own row taking the third
+  place when you are outside them;
 - the percentage: the damage share in DMG mode, the healing share in HEAL
   mode, the stagger share in STAG mode, and empty when the total is zero.
 
@@ -212,3 +246,7 @@ The rest is CSS and wiring; it is checked by running the app.
   the default; it is a setting.
 - **Hover reveals change the row's layout.** The extra elements have a fixed
   width so the DPS column does not move, but the name column does shorten.
+- **The meter grows on hover**, so the overlay window changes height while
+  the pointer is over it. The expansion is trimmed to the room below the
+  window so it never grows past the screen, but the resize itself is still
+  visible.
