@@ -59,6 +59,10 @@ const REMOTE_APPLIED_SETTING_CONTROLS = {
   "dpsMeter.autoUpload": ".autoUploadCheckbox",
 };
 
+// The meter is expanded when the pointer is over it, or when it is pinned.
+// Both mean the same thing to the reader: "show me everything".
+const meterIsExpanded = (hovered, pinned) => !!hovered || !!pinned;
+
 class DpsApp {
   constructor() {
     if (DpsApp.instance) return DpsApp.instance;
@@ -152,6 +156,11 @@ class DpsApp {
     this.dpsFormatter = new Intl.NumberFormat("en-US");
     this.lastJson = null;
     this.isCollapse = false;
+    // The meter's expanded state: the extra rows, the extra columns and the
+    // chrome. The pointer brings it; the pin (a later task) keeps it.
+    this.meterExpanded = false;
+    this.meterHovered = false;
+    this.pinned = false;
     this._windowHidden = false;
     this.displayMode = "dps";
     this.betaUi = true;
@@ -389,6 +398,7 @@ class DpsApp {
     this.bindDragToMoveWindow();
     this.bindResizeHandle();
     this.initHoverTooltip();
+    this._bindMeterHover();
 
     this.meterUI = createMeterUI({
       elList: this.elList,
@@ -398,6 +408,15 @@ class DpsApp {
       getSortDirection: () => this.listSortDirection,
       getPinUserToTop: () => this.pinMeToTop,
       getPlayerLimit: () => this.playerLimit,
+      getExpanded: () => this.meterExpanded,
+      // The room below the window's bottom edge, in CSS px. `spaceBelow` is
+      // the room below the window's top-left corner, so the window's own
+      // height comes off it.
+      getRowRoom: () => {
+        const below = window.javaBridge?.spaceBelow?.();
+        if (!below) return Infinity;
+        return Math.max(0, below.h - window.innerHeight);
+      },
       getPartyStat: () => this.partyStat,
       getJobColor: (job) => this.getJobColor(job),
       onHoverUserRow: (row, event) => {
@@ -6644,6 +6663,25 @@ class DpsApp {
       dungeonId: this.lastDungeonId,
     });
     this.elBossName.classList.toggle("isAllTargets", this.lastTargetMode === "allTargets");
+  }
+
+  /** The meter's expanded state: the extra rows, the extra columns and the
+   *  chrome. The class on `.meter` is what the CSS keys off. */
+  setMeterExpanded(expanded) {
+    this.meterExpanded = !!expanded;
+    document.querySelector(".meter")?.classList.toggle("isExpanded", this.meterExpanded);
+    this.renderCurrentRows();
+  }
+
+  // The pointer over the meter expands it; leaving collapses it again.
+  _bindMeterHover() {
+    const meter = document.querySelector(".meter");
+    if (!meter) return;
+    const sync = () => {
+      this.setMeterExpanded(meterIsExpanded(this.meterHovered, this.pinned));
+    };
+    meter.addEventListener("pointerenter", () => { this.meterHovered = true; sync(); });
+    meter.addEventListener("pointerleave", () => { this.meterHovered = false; sync(); });
   }
 
   bindDragToMoveWindow() {

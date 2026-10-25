@@ -553,14 +553,16 @@ body.linuxOverlay .meter {
 /* Fixed widths: the figures must not resize the header as the percentage
    ticks (9% -> 10%) or as the boss's HP drops, or the name beside them
    jitters with it. The percentage's box holds the widest it gets ("100%");
-   the amounts' holds a typical "1.23m / 45.67m". They are floors: a value
-   that outgrows one grows the header, and the name is refitted to match. */
+   the amounts' holds a typical "1.23m / 45.67m". The percentage's is a
+   floor, so the digits never tick the header; the amounts' is a ceiling,
+   so the collapsed meter can hide them (see the hover state at the end of
+   this file) and show them again in a box of the same width. */
 .header .bossHpInline .bossHpPctInline {
   color: var(--hud-num);
   min-width: 3em;
   text-align: right;
 }
-.header .bossHpInline .bossHpAmtInline { min-width: 8em; }
+.header .bossHpInline .bossHpAmtInline { max-width: 8em; }
 /* No boss, no figures: the band hides itself, so these do too. */
 .header .bossHpInline[hidden] { display: none; }
 
@@ -8784,4 +8786,60 @@ html.a2-offline .historyUploadBtn {
 }
 .detailsPanel .staggerTick.isAmbiguous {
   outline: 1px solid var(--stagger-warn);
+}
+
+/* ---------- the hover state ---------- */
+/* The chrome and the accessory data are hidden until the meter is hovered:
+   the pointer over the meter, or the pin. The lock button is the way out
+   of click-through, so it never hides. */
+.header .headerBtns .headerBtn,
+.footerBtns .footerBtn {
+  opacity: 0;
+  transition: opacity 140ms ease;
+}
+.meter.isExpanded .header .headerBtns .headerBtn,
+.meter.isExpanded .footerBtns .footerBtn {
+  opacity: 1;
+}
+.header .headerBtns .lockBtn { opacity: 1; }
+
+/* The buttons that carry a state stay visible: the update button is green
+   when an update is waiting, and the suspend button turns red when the
+   capture is suspended. A state the player cannot see is a state they
+   cannot act on. The update button carries the `hidden` attribute when
+   there is nothing to report, so it costs nothing while idle. */
+.header .headerBtns .updatesBtn,
+.header .headerBtns .suspendBtn.isSuspended { opacity: 1; }
+
+/* The accessory data: the class icon, the badges and the combat power.
+   They take no room until they are wanted, so the row stays short. The
+   name gives up the space instead: the readout keeps its place.
+   The meter's own rows only: the bar preview in Settings shows them. */
+.meter .list .item .classIcon,
+.meter .list .item .combatPower,
+.meter .list .item .supporterBadge,
+.meter .list .item .a2toolsBadge {
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-width 140ms ease, opacity 140ms ease;
+}
+.meter.isExpanded .list .item .classIcon { max-width: 16px; opacity: 1; }
+.meter.isExpanded .list .item .combatPower { max-width: 60px; opacity: 1; }
+.meter.isExpanded .list .item .supporterBadge,
+.meter.isExpanded .list .item .a2toolsBadge { max-width: 16px; opacity: 1; }
+
+/* The absolute amounts are detail: they wait for the expanded meter, so
+   the boss name keeps the room in the compact one. The box keeps its width
+   when it is shown, so the header does not tick with the figures. */
+.header .bossHpInline .bossHpAmtInline {
+  max-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-width 140ms ease, opacity 140ms ease;
+}
+.meter.isExpanded .header .bossHpInline .bossHpAmtInline {
+  min-width: 8em;
+  max-width: 8em;
+  opacity: 1;
 }

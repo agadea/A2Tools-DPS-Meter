@@ -48,6 +48,34 @@ const isBrightColor = (value) => {
   return bright;
 };
 
+// The rows the meter draws. Compact: the top three, with your own row
+// taking the last place when your damage puts you outside them, so you
+// always see yourself. Expanded: as many as the setting allows.
+function pickDisplayRows(sortedAll, { limit = 6, expanded = false, pinUserToTop = false } = {}) {
+  const cap = expanded ? limit : Math.min(3, limit);
+  const topN = sortedAll.slice(0, cap);
+  const user = sortedAll.find((x) => x.isUser);
+  if (!user) return topN;
+  if (pinUserToTop) {
+    return [user, ...topN.filter((row) => !row.isUser)].slice(0, cap);
+  }
+  if (topN.some((x) => x.isUser)) return topN;
+  if (topN.length < cap) return [...topN, user];
+  return [...topN.slice(0, cap - 1), user];
+}
+
+// The row height, from the CSS (`--hud-row-h`), so the slim layout is
+// honoured and the number lives in one place. 0 when the stylesheet cannot
+// be read: the rows are then not trimmed.
+function rowHeightPx(elList) {
+  try {
+    const raw = getComputedStyle(elList).getPropertyValue("--hud-row-h");
+    const px = parseFloat(raw);
+    if (Number.isFinite(px) && px > 0) return px;
+  } catch {}
+  return 0;
+}
+
 const createMeterUI = ({
   elList,
   dpsFormatter,
@@ -61,6 +89,8 @@ const createMeterUI = ({
   getPlayerLimit,
   getPartyStat,
   getJobColor,
+  getExpanded = () => false,
+  getRowRoom = () => Infinity,
 }) => {
   const MAX_CACHE = 32;
   const cjkRegex = /[\u3400-\u9FFF\uF900-\uFAFF]/;
@@ -70,6 +100,9 @@ const createMeterUI = ({
   let lastVisibleIds = new Set();
   let pendingRenderRows = null;
   let renderRowsRafId = 0;
+  // How many rows were drawn last, so the room below the window can be
+  // counted from the rows that are already there.
+  let lastRowCount = 0;
 
   const nowMs = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
 
@@ -246,19 +279,12 @@ const createMeterUI = ({
     return view;
   };
 
-  const getDisplayRows = (sortedAll) => {
-    const limit = (typeof getPlayerLimit === "function" ? getPlayerLimit() : 6) || 6;
-    const topN = sortedAll.slice(0, limit);
-    const user = sortedAll.find((x) => x.isUser);
-
-    if (!user) return topN;
-    const pinUser = typeof getPinUserToTop === "function" && getPinUserToTop();
-    if (pinUser) {
-      return [user, ...topN.filter((row) => !row.isUser)];
-    }
-    if (topN.some((x) => x.isUser)) return topN;
-    return [...topN, user];
-  };
+  const getDisplayRows = (sortedAll) =>
+    pickDisplayRows(sortedAll, {
+      limit: (typeof getPlayerLimit === "function" ? getPlayerLimit() : 6) || 6,
+      expanded: getExpanded() === true,
+      pinUserToTop: typeof getPinUserToTop === "function" && getPinUserToTop(),
+    });
 
   const pruneCache = (keepIds) => {
     if (rowViewById.size <= MAX_CACHE) return;
@@ -541,7 +567,22 @@ const createMeterUI = ({
         if (id) rankById.set(id, index + 1);
       });
 
-    renderRows(getDisplayRows(arr), rankById);
+    const displayRows = getDisplayRows(arr);
+    // Only the rows that fit below the window are drawn: the overlay grows
+    // from its top-left corner, and a window that grows past the screen edge
+    // is moved back by the window manager (issue #11).
+    const room = getRowRoom();
+    const rowHeight = rowHeightPx(elList);
+    // The room below the window's bottom edge, in rows that fit. The rows
+    // already drawn count as well: the window grows from its top-left
+    // corner, so the room below them is the room the meter may grow into.
+    // Counting only the room would take a row away on the next update and
+    // put it back on the one after, and the meter would flicker.
+    const roomRows = Number.isFinite(room) && rowHeight > 0 ? Math.floor(room / rowHeight) : Infinity;
+    const maxRows = Number.isFinite(roomRows) ? lastRowCount + roomRows : Infinity;
+    const drawnRows = displayRows.slice(0, Math.max(3, maxRows));
+    lastRowCount = drawnRows.length;
+    renderRows(drawnRows, rankById);
   };
 
   const updateFromRows = (rows) => {
@@ -556,6 +597,7 @@ const createMeterUI = ({
     }
     pendingRenderRows = null;
     lastOrderKey = "";
+    lastRowCount = 0;
     elList.classList.remove("hasRows");
     lastVisibleIds = new Set();
 

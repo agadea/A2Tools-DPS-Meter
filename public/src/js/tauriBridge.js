@@ -1347,6 +1347,9 @@
   };
 
   window.javaBridge.updateOverlaySize = updateWindowSize;
+  // The room to the right of and below the window's top-left corner. The
+  // meter uses it to keep its expansion on the screen (issue #11).
+  window.javaBridge.spaceBelow = spaceRightBelow;
 
   // Watch all class changes on the container to catch panel open/close instantly
   const containerObserver = new MutationObserver(() => updateWindowSize());
