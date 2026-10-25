@@ -81,7 +81,34 @@ button is clickable too.
 When the overlay is locked there is no hover, so the pin is the only way to
 see the extra data. That is the point of the pin.
 
-### 5. Hiding when idle
+### 5. The percentage follows the metric
+
+The row's percentage is not always the damage share. It says how much of
+what the meter is currently showing, that player did:
+
+| Display mode | The percentage is |
+|---|---|
+| DPS / DMG / BOTH | the player's damage over the party's damage |
+| HPS / HEAL | the player's healing over the party's healing |
+| STAG | the player's stagger over the party's stagger |
+
+Today the percentage is always the damage share, so in HEAL mode a healer
+sees "0%" beside their healing figure. That is the incoherence this fixes.
+
+The rows already carry what this needs — `totalDamage`, `healAmount` and
+`stagger` per row — so it is all frontend: the numerator and the
+denominator are picked by the display mode, exactly as the sort already is.
+In HEAL mode the healer is already at the top, because the order follows the
+metric.
+
+A row's share of nothing is left empty rather than shown as "0.0%": in HEAL
+mode, when nobody healed, there is no percentage to show.
+
+The denominator is the visible rows, as it is for damage today: with "max
+players shown" set below the party size, the shares are of the visible rows,
+not of the whole party.
+
+### 6. Hiding when idle
 
 Combination of both signals the user chose:
 
@@ -146,7 +173,7 @@ New:
 | `src/styles.css` | the compact look, the hover reveals, the hairline HP |
 | `index.html` | the pin button, the HP % in the header |
 | `public/src/js/core.js` | the pin state, the hover state, the idle check, the settings wiring |
-| `public/src/js/meter.js` | the accessory elements' reveal state |
+| `public/src/js/meter.js` | the accessory elements' reveal state, the percentage by metric |
 | `public/src/js/tauriBridge.js` | the `pin-changed` listener, the clickable-rect list, the keybind row |
 | `src-tauri/src/app.rs` | the pin hotkey and state, the idle condition, the rect list |
 | `src/data/i18n/ui/*.json` | the new strings (10 languages) |
@@ -161,7 +188,9 @@ functions, tested in the style of `tests/meter-rows.test.mjs` (node --test,
 - idle when both signals are idle; not idle when either is not; never idle
   when pinned or a panel is open;
 - the accessory data is hidden by default, shown on hover, always shown when
-  pinned.
+  pinned;
+- the percentage: the damage share in DMG mode, the healing share in HEAL
+  mode, the stagger share in STAG mode, and empty when the total is zero.
 
 The rest is CSS and wiring; it is checked by running the app.
 
