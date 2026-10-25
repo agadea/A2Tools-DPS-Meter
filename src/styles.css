@@ -8791,17 +8791,21 @@ html.a2-offline .historyUploadBtn {
 /* ---------- the hover state ---------- */
 /* The chrome and the accessory data are hidden until the meter is hovered:
    the pointer over the meter, or the pin. The lock button is the way out
-   of click-through, so it never hides. */
+   of click-through, so it never hides. A hidden button takes no clicks
+   either: an invisible Settings button that still answers the mouse is a
+   trap. */
 .header .headerBtns .headerBtn,
 .footerBtns .footerBtn {
   opacity: 0;
+  pointer-events: none;
   transition: opacity 140ms ease;
 }
 .meter.isExpanded .header .headerBtns .headerBtn,
 .meter.isExpanded .footerBtns .footerBtn {
   opacity: 1;
+  pointer-events: auto;
 }
-.header .headerBtns .lockBtn { opacity: 1; }
+.header .headerBtns .lockBtn { opacity: 1; pointer-events: auto; }
 
 /* The buttons that carry a state stay visible: the update button is green
    when an update is waiting, and the suspend button turns red when the
@@ -8809,25 +8813,26 @@ html.a2-offline .historyUploadBtn {
    cannot act on. The update button carries the `hidden` attribute when
    there is nothing to report, so it costs nothing while idle. */
 .header .headerBtns .updatesBtn,
-.header .headerBtns .suspendBtn.isSuspended { opacity: 1; }
+.header .headerBtns .suspendBtn.isSuspended { opacity: 1; pointer-events: auto; }
 
 /* The accessory data: the class icon, the badges and the combat power.
    They take no room until they are wanted, so the row stays short. The
    name gives up the space instead: the readout keeps its place.
-   The meter's own rows only: the bar preview in Settings shows them. */
-.meter .list .item .classIcon,
-.meter .list .item .combatPower,
-.meter .list .item .supporterBadge,
-.meter .list .item .a2toolsBadge {
+   The meter's own list only: `.meter` holds the Settings panel too, and
+   its bar preview is a list of its own that keeps its icons. */
+.meter > .list .item .classIcon,
+.meter > .list .item .combatPower,
+.meter > .list .item .supporterBadge,
+.meter > .list .item .a2toolsBadge {
   max-width: 0;
   opacity: 0;
   overflow: hidden;
   transition: max-width 140ms ease, opacity 140ms ease;
 }
-.meter.isExpanded .list .item .classIcon { max-width: 16px; opacity: 1; }
-.meter.isExpanded .list .item .combatPower { max-width: 60px; opacity: 1; }
-.meter.isExpanded .list .item .supporterBadge,
-.meter.isExpanded .list .item .a2toolsBadge { max-width: 16px; opacity: 1; }
+.meter.isExpanded > .list .item .classIcon { max-width: 16px; opacity: 1; }
+.meter.isExpanded > .list .item .combatPower { max-width: 60px; opacity: 1; }
+.meter.isExpanded > .list .item .supporterBadge,
+.meter.isExpanded > .list .item .a2toolsBadge { max-width: 16px; opacity: 1; }
 
 /* The absolute amounts are detail: they wait for the expanded meter, so
    the boss name keeps the room in the compact one. The box keeps its width

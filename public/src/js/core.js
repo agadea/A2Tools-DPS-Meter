@@ -415,6 +415,9 @@ class DpsApp {
       getRowRoom: () => {
         const below = window.javaBridge?.spaceBelow?.();
         if (!below) return Infinity;
+        // The clamp is what makes the row count converge: a row that goes
+        // away frees a whole row of room, and without the floor the count
+        // would trade rows with the room for ever (5 rows, then 6, then 5).
         return Math.max(0, below.h - window.innerHeight);
       },
       getPartyStat: () => this.partyStat,

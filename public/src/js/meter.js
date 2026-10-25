@@ -64,16 +64,32 @@ function pickDisplayRows(sortedAll, { limit = 6, expanded = false, pinUserToTop 
   return [...topN.slice(0, cap - 1), user];
 }
 
-// The row height, from the CSS (`--hud-row-h`), so the slim layout is
-// honoured and the number lives in one place. 0 when the stylesheet cannot
-// be read: the rows are then not trimmed.
-function rowHeightPx(elList) {
+// The pitch a new row takes in the list: its height plus the gap under it.
+// The drawn rows are the DOM's own truth, so they come first; the CSS
+// variables are the fallback. 0 when neither can be read: the rows are then
+// not trimmed, and the "max players shown" setting bounds the meter as it
+// did before this change.
+function rowPitchPx(elList) {
   try {
-    const raw = getComputedStyle(elList).getPropertyValue("--hud-row-h");
-    const px = parseFloat(raw);
-    if (Number.isFinite(px) && px > 0) return px;
+    const style = getComputedStyle(elList);
+    const gap = parseFloat(style.rowGap) || parseFloat(style.getPropertyValue("--hud-gap")) || 0;
+    const drawn = Array.from(elList.querySelectorAll(".item")).find((el) => el.offsetHeight > 0);
+    const height = drawn?.offsetHeight || parseFloat(style.getPropertyValue("--hud-row-h"));
+    if (Number.isFinite(height) && height > 0) return height + gap;
   } catch {}
   return 0;
+}
+
+// How many rows to draw. The room below the window's bottom edge is the
+// room the meter may grow into, and the rows already drawn are still there:
+// they count as well, or the meter would take a row away on the next update
+// and put it back on the one after, and it would flicker.
+// A pitch of 0 means the rows cannot be measured: nothing is trimmed then.
+function pickRowCount(rows, room, pitch, drawnCount) {
+  const total = rows.length;
+  if (!Number.isFinite(room) || !(pitch > 0)) return total;
+  const roomRows = Math.floor(room / pitch);
+  return Math.min(total, Math.max(3, drawnCount + roomRows));
 }
 
 const createMeterUI = ({
@@ -572,15 +588,8 @@ const createMeterUI = ({
     // from its top-left corner, and a window that grows past the screen edge
     // is moved back by the window manager (issue #11).
     const room = getRowRoom();
-    const rowHeight = rowHeightPx(elList);
-    // The room below the window's bottom edge, in rows that fit. The rows
-    // already drawn count as well: the window grows from its top-left
-    // corner, so the room below them is the room the meter may grow into.
-    // Counting only the room would take a row away on the next update and
-    // put it back on the one after, and the meter would flicker.
-    const roomRows = Number.isFinite(room) && rowHeight > 0 ? Math.floor(room / rowHeight) : Infinity;
-    const maxRows = Number.isFinite(roomRows) ? lastRowCount + roomRows : Infinity;
-    const drawnRows = displayRows.slice(0, Math.max(3, maxRows));
+    const pitch = rowPitchPx(elList);
+    const drawnRows = displayRows.slice(0, pickRowCount(displayRows, room, pitch, lastRowCount));
     lastRowCount = drawnRows.length;
     renderRows(drawnRows, rankById);
   };

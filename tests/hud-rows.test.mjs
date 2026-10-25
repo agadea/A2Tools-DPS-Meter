@@ -67,10 +67,11 @@ test("your row takes the third place when you are outside the top three", () => 
 
 test("expanded, the meter shows as many rows as the setting allows", () => {
   const ctx = meterContext();
-  const names = namesOf(ctx, [row("a", 100), row("b", 90), row("c", 80), row("d", 70)], {
-    limit: 6,
-    expanded: true,
-  });
+  const party = [
+    row("a", 100), row("b", 90), row("c", 80), row("d", 70),
+    row("e", 60), row("f", 50), row("g", 40), row("h", 30),
+  ];
+  const names = namesOf(ctx, party, { limit: 4, expanded: true });
   assert.deepEqual(names, ["a", "b", "c", "d"]);
 });
 
@@ -82,4 +83,51 @@ test("pinned to the top, you come first and the count still holds", () => {
     pinUserToTop: true,
   });
   assert.deepEqual(names, ["me", "a", "b"]);
+});
+
+// The trim: how many rows the meter draws when there is only so much room
+// below the window.
+const countIn = (ctx, rows, room, pitch, drawn) =>
+  vm.runInContext(
+    "pickRowCount(rows, room, pitch, drawn)",
+    Object.assign(ctx, { rows, room, pitch, drawn })
+  );
+
+test("the expansion is trimmed to the room below the window", () => {
+  const ctx = meterContext();
+  const rows = [1, 2, 3, 4, 5, 6, 7, 8];
+  // Three rows are drawn and 81px (three pitches) are left below.
+  const count = countIn(ctx, rows, 81, 27, 3);
+  assert.equal(count, 6);
+  // Never more than the rows that fit.
+  assert.ok(count <= 3 + Math.floor(81 / 27));
+});
+
+test("the trimmed count settles instead of trading rows with the room", () => {
+  const ctx = meterContext();
+  const rows = [1, 2, 3, 4, 5, 6, 7, 8];
+  let drawn = 3;
+  let room = 81;
+  const counts = [];
+  for (let i = 0; i < 5; i++) {
+    const count = countIn(ctx, rows, room, 27, drawn);
+    counts.push(count);
+    // Every row the meter adds takes its pitch out of the room below.
+    room -= (count - drawn) * 27;
+    drawn = count;
+  }
+  assert.deepEqual(counts, [6, 6, 6, 6, 6]);
+});
+
+test("the compact meter keeps three rows when there is no room below", () => {
+  const ctx = meterContext();
+  const rows = [1, 2, 3, 4, 5, 6, 7, 8];
+  assert.equal(countIn(ctx, rows, 0, 27, 0), 3);
+  assert.equal(countIn(ctx, rows, 0, 27, 3), 3);
+});
+
+test("without a measurable pitch nothing is trimmed", () => {
+  const ctx = meterContext();
+  const rows = [1, 2, 3, 4, 5, 6, 7, 8];
+  assert.equal(countIn(ctx, rows, 0, 0, 0), 8);
 });
