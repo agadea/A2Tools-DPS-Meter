@@ -2,7 +2,8 @@
 
 **Date:** 2026-10-25
 **Branch:** `feature/plugin-alert-strip` (off `feature/minimalism-ui`)
-**Status:** written for review. Nothing is implemented yet.
+**Status:** the design is settled (the questions below are answered). Nothing
+is implemented yet; the implementation plan is next.
 
 ## The problem
 
@@ -53,6 +54,10 @@ it just does nothing about size:
 - The frame relays `window.fit` to the dock: `onFit(fitted)` sets `d.alert`
   and opens that plugin's tab (`pluginDock.js:210`), and the tab is marked
   (`.dockTabAlert`, `pluginDock.css:60`).
+- **The dock already folds itself to a strip**: `dock_fold` (`dock.rs:211`)
+  shrinks it to the height of its tab bar and puts the size back when it
+  unfolds. The strip is that, with the plugin's page showing under the bar
+  instead of the bar alone.
 - A plugin **in a window of its own** can already be shrunk to the height of
   its alert: `plugin_window_fit` resizes that window, and Event Timers uses
   it (`event-timers/plugin.js:1469`, `a2.window.fit(height)`).
@@ -70,15 +75,17 @@ clipped to a strip's height shows the alert and nothing else.
 ## The design
 
 **A docked plugin that asks to be shown gets an alert strip: the dock shrinks
-to a short height, the plugin's tab opens and is marked, and the game's top
-slot is left alone.**
+to a short height over the game, with that plugin's tab open and its banner
+showing.**
 
 | | Today | New |
 |---|---|---|
-| Docked plugin calls `show()` in a fight | the whole dock, 380×520, TOPMOST over the game | the dock shrunk to a strip, with that plugin's tab open |
-| Docked plugin calls `fit(h)` | ignored | the dock shrunk to `h` |
-| The plugin puts its window back (`fit()`, `hide()`) | the dock stays at its full size | the dock returns to the size it had |
-| The game's top slot | taken by the dock | left to the game (like the widgets) |
+| Docked plugin calls `show()` in a fight | the whole dock, 380×520, TOPMOST over the game | a strip of ~82 px (34 of bar + 48 of banner), with that plugin's tab open |
+| Docked plugin calls `fit(h)` | ignored | a strip of 34 + `h` |
+| The plugin puts its window back (`fit()`, `hide()`) | the dock stays at its full size | the dock returns to exactly what it was: its size, whether it was up, and the state of the plugin's tab |
+| The plugin says nothing | the dock stays up for good | the strip closes itself after 2 minutes, and every new alert restarts that clock |
+| Clicks over the strip | — | the whole strip takes them (the banner is a button) |
+| The game's top slot | taken by the dock | taken by the strip: it stays on top, as the meter's own windows do. The player rejected the hidden strip: an alert behind the game is no alert at all. |
 
 The strip keeps the dock's own behaviour: it is the same window, the same
 page, the same tab strip — only shorter, so the alert is the only thing it
@@ -86,34 +93,64 @@ shows.
 
 ### The height
 
-- When the plugin gives one (`fit(h)`), that is the height.
-- When it does not (Mantra Watch only calls `show()`), the platform needs a
-  default. **Open question 1.**
+- The bar of tabs is 34 px (`.dockBar`, fixed in CSS).
+- The plugin's own alert is 48 px when the plugin gives no height (Mantra
+  Watch only calls `show()`): its banner is ~30 px tall, so 48 leaves it
+  room.
+- When the plugin gives one (`fit(h)`, Event Timers), the strip is 34 + `h`.
 
-## Open questions (to settle before implementing)
+The platform cannot ask the plugin's page how tall its alert is: the banner
+is in a cross-origin frame, and a new API the plugin would have to answer
+cannot be answered by Mantra Watch (whose source is not in this repo). So
+the default is a constant.
 
-1. **The height of a strip without a `fit` call.** A fixed default (say
-   96–140 px, the tab bar plus the plugin's banner)? Or should the platform
-   ask the plugin's page how tall its alert is — a new API the plugin would
-   have to answer, which Mantra Watch (whose source is not in this repo)
-   cannot answer yet?
-2. **Should the strip take the game's top slot?** The recommendation is no:
-   the game's top slot belongs to the game, and the widgets already work that
-   way. But then the strip is *behind* the game, and the player sees the
-   alert only when the game is not covering that corner. Or should the strip
-   be TOPMOST but small enough not to matter (a 380×120 strip at the dock's
-   place)?
-3. **What happens when the alert ends.** The dock returns to the size it had
-   before, or does it hide altogether? Today the plugin's tab stays "shown"
-   (`remember_window`), so the dock stays up after the alert — that is part of
-   what the player complained about ("it stays fixed").
-4. **Click-through.** While the strip is over the game, do clicks reach the
-   game or the strip? Mantra Watch's banner is a button (click to dismiss
-   until the mantra is back), so it must be clickable; the rest of the strip
-   could let the clicks through.
-5. **The stacked layout.** The dock can stack its plugins instead of showing
-   tabs (`prefs.layout === "stack"`). Does the strip work there, and what does
-   "the plugin's tab opens" mean?
+### What the plugins do (read from the installed sources)
+
+The plugin sources are not in this repo, but they are on the machine, in
+`%APPDATA%/com.a2tools.dps-meter/plugins`:
+
+- **Mantra Watch's banner is the first element of its `<body>`**
+  (`<button class="banner">`), so a strip showing the top of the plugin's
+  page shows the banner.
+- **Mantra Watch says when the alert is over**: it calls `hide()` when the
+  mantra is back (`plugin.js:250`) — but only when the player has not used
+  the panel in the last 60 s (`hideAfterAlert`). So the strip cannot have a
+  short fixed life: the alert lasts as long as the mantra is down, which is
+  minutes. The 2 minutes are a safety net for a plugin that never says
+  anything, and every alert restarts them.
+- **Event Timers** uses `fit(h)`, and `fit()` without a height when the
+  alert is over.
+
+## The questions, settled
+
+1. **The height of a strip without a `fit` call.** The bar (34 px) plus a
+   default of 48 px for the alert. A plugin that gives its height (`fit(h)`)
+   gets the bar plus `h`.
+2. **Should the strip take the game's top slot?** Yes: it stays on top, as
+   the meter's own windows do, and it is small enough not to matter. The
+   player had already rejected the alternative — a strip behind the game is
+   no alert at all.
+3. **What happens when the alert ends.** The dock goes back to exactly what
+   it was before: its size, whether it was up, and the state of the plugin's
+   tab ("shown"/"hidden"). The guard that keeps the dock up when its last
+   tab hides ("no other way back") does not apply to the strip: the dock was
+   only up because of the alert. A plugin that never says anything gets a
+   2-minute safety net, restarted by every alert.
+4. **Click-through.** The whole strip takes the clicks: the banner has to be
+   clickable (Mantra Watch's banner is a button that dismisses the alert).
+   Only the strip's own area is affected; the rest of the screen stays the
+   game's.
+5. **The stacked layout.** The strip shows one plugin only — the one that
+   alerted — whichever layout the dock is in. The stacked layout comes back
+   when the alert is over.
+
+Two more rules the answers led to:
+
+- **The dock already open** (the player opened it): the alert only opens the
+  plugin's tab. Nothing shrinks; the dock is up by the player's own choice.
+  The strip is for when the dock would appear because of the alert.
+- **A strip already up** and another plugin alerts: the strip shows the new
+  plugin (the last one to ask) and the clock restarts.
 
 ## Out of scope
 
